@@ -1,4 +1,11 @@
 <?php echo $header; ?>
+<style type="text/css">
+    .loading{
+        background-image: url('view/image/loading.gif');
+        background-repeat: no-repeat;
+        height: 12px; width: 12px; float: right; margin: 3px 9px;
+    }
+</style>
 <div id="content">
   <div class="breadcrumb">
     <?php foreach ($breadcrumbs as $breadcrumb) { ?>
@@ -22,38 +29,9 @@
         
         <div id="tabs" class="htabs">
             <a href="#tab-sheets">Sheets</a>
-            <a href="#tab-settings">Sheets Setting</a>
             <a href="#tab-about">About</a>
         </div>
-        <div id="tab-settings">
-            <form id="form" action="<?php echo $action; ?>" method="post">
-                <table class="list">
-                <thead>
-                  <tr>
-                        <td width="1" style="text-align: center;"><input type="checkbox" onclick="$('input[name*=\'selected\']').attr('checked', this.checked);" /></td>
-                        <td class="left">Setting</td>
-                        <td class="right">Action</td>
-                  </tr>
-                </thead>
-                <tbody>
-                  <?php if ($settings) { ?>
-                  <?php foreach ($settings as $setting) { ?>
-                  <tr>
-                    <td><input type="checkbox" name="selected[]" value="<?php echo $setting['id']; ?>" /></td>
-                    <td class="left"><?php echo $setting['title']; ?></td>
-                    <td class="right"><a href="index.php?route=feed/sheetsync/setting&token=<?php echo $_GET['token'];?>&id=<?php echo $setting['id']; ?>">Edit</a> | <a href="#">Delete</a></td>
-                  </tr>
-                  <?php } ?>
-                  <?php } else { ?>
-                  <tr>
-                    <td class="center" colspan="8">No settings found!</td>
-                  </tr>
-                  <?php } ?>
-                </tbody>
-                </table>
-            </form>
-        </div>
-        
+   
         <div id="tab-sheets">
             <a href="#" id="addblank">Create New Sheet</a>
             <form action="" method="post">
@@ -92,8 +70,15 @@
         
         <div id="tab-about">
             <table>
-                <tr><td class="left"><?php echo $text_module_version; ?>: </td><td class="left"><?php echo GSS_VERSION; ?></td></tr>
+                <tr><td class="left"><b>Current Syncsheet Version</b></td><td class="left"><?php echo GSS_VERSION; ?></td></tr>
+                <tr class="vcheck">
+                    <td class="left"><b>Check for updates</b></td>
+                    <td class="left"><a class="_vc" href="#">Click Here</a> <span style="display: none;" class="loading"></span></td>
+                </tr>
             </table>
+            <div id="installNew">
+                
+            </div>
         </div>
     </div>
   </div>
@@ -172,8 +157,36 @@ var ajax = 'index.php?route=feed/sheetsync/ajax&token=<?php echo $_GET['token'];
             }
         });
     });
-    /////////////////////////////////
+    /////////////////Version check////////////////
+    $('._vc').click(function(e){ e.preventDefault(); $('.loading').show();
+        $.post(ajax,{action:'version_check'},function(r){ r=$.parseJSON(r);
+            $('.loading, .vcheck').hide();
+            if(r.new){
+            var html = '<div class="version">';
+                html +='        <center>';
+                html +='                  <h1>'+r.msg+', <br/>';
+                html +='                       Click the install button below to get the latest version.<br/>';
+                html +='                       <a class="_install" href="#">Install Now</a><span style="display:none;" class="loading"></span>';
+                html +='                  </h1>';
+                html +='                       <i>'+r.version.title +' : v.'+r.version.version_no +'. {Requires : GSS V-'+r.version.gss_version +'}</i>';
+                html +='               </center>';
+                html +='          </div>';
+                $('#installNew').html(html);
+            }else{
+                $('#installNew').html('<h1>'+r.msg+'</h1>');
+            }
+        });
+    });
     
+    $(document).on('click','._install',function(e){ e.preventDefault(); $('.loading').show();
+        $.post(ajax,{action:'update_version'},function(r){ r=$.parseJSON(r);
+            $('.loading').hide();
+            $('#installNew').html('<center><h1>'+r.msg+'</h1></center>');
+        });
+    });
+    
+    
+    ///////////////////////////////////
 });    
 
     $(document).on('click','.edSheet',function(e){e.preventDefault();

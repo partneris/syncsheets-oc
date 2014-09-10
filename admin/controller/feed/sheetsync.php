@@ -1,5 +1,5 @@
 <?php 
-define('GSS_VERSION', "0.1.6");
+define('GSS_VERSION', "0.0.2");
 class ControllerFeedSheetsync extends Controller {
 	private $error = array(); 
         
@@ -285,7 +285,6 @@ class ControllerFeedSheetsync extends Controller {
                 }
             }
             
-            $this->data['settings'] = $this->model_feed_sheetsync->getSettings();
             $this->data['sheets'] = $this->model_feed_sheetsync->fetchSpreadSheets();
             
             $this->language->load('feed/sheetsync');
@@ -533,6 +532,26 @@ class ControllerFeedSheetsync extends Controller {
                             die(json_encode(array('status'=>true,'result'=>$result)));
                             
                         break;
+                        
+                 case 'version_check':
+                     $this->load->model('feed/sheetsync');
+                     $response = $this->model_feed_sheetsync->call('version_check');
+                     
+                     if(version_compare($response->Version->version_no, GSS_VERSION) === 1){
+                         die(json_encode(array('new'=>true,'msg'=>"A new version {".$response->Version->title." v." . $response->Version->version_no . '} is now available','version'=>$response->Version)));
+                     }else{
+                         die(json_encode(array('new'=>false,'msg'=>'You are using the latest version.')));
+                     }
+                     break;
+                 case 'update_version':
+                     $this->load->model('feed/sheetsync');
+                     $response = $this->model_feed_sheetsync->call('version_check');
+                     
+                     if(version_compare($response->Version->version_no, GSS_VERSION) === 1){
+                         $this->updateCode($response->Version->github_link);
+                     }
+                     
+                     break;
             }
         }
 
@@ -546,6 +565,42 @@ class ControllerFeedSheetsync extends Controller {
                 print "An error occurred: " . $e->getMessage();
               }
               return NULL;
+        }
+        
+        public function updateCode($link){
+            $json = array();
+            $cache_file = DIR_CACHE .'gssuploads.zip';
+            $application_path = dirname(DIR_APPLICATION);
+            file_put_contents($cache_file, file_get_contents($link));
+            if(is_file($cache_file)){
+              $zip = new ZipArchive;
+                if ($zip->open($cache_file) === TRUE) {
+                    for($i = 0; $i < $zip->numFiles; $i++) {
+                         $filename = $zip->getNameIndex($i);
+                         $fileinfo = pathinfo($filename);
+                         if($fileinfo['dirname'] == '.'){
+                             $zip_root_folder = $filename;
+                         }else{
+                             if(isset($fileinfo['extension'])){
+                                 $folder_path = str_replace($zip_root_folder,'', $fileinfo['dirname']);
+                                 $destination_path = $application_path .DIRECTORY_SEPARATOR. $folder_path; //$fileinfo['basename'];
+                                 if(!is_dir($destination_path)){
+                                     mkdir($destination_path,755,true);
+                                 }
+                                 $destination = $destination_path . DIRECTORY_SEPARATOR . $fileinfo['basename'];
+                                 copy("zip://".$cache_file."#".$filename,$destination);
+                                 $json['files'][] = $destination;
+                             }
+                         }
+                     }                  
+                     $zip->close();                  
+                } 
+                $json['msg'] = "Congrats! Syncsheet Now updated to latest version.";
+                unlink($cache_file);
+            }else{
+                $json['error'] = "Sorry, Unable to download updates";
+            }
+            die(json_encode($json));
         }
 
 }

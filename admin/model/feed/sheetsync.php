@@ -8,6 +8,7 @@
 class ModelFeedSheetsync extends Model {
 
    private $api = "http://api.syncsheets.com/api/v1/";
+//    private $api = "http://localhost/spreadserver/v1/";
    public $multiple = array(
         'name',
         'description',
@@ -520,6 +521,7 @@ class ModelFeedSheetsync extends Model {
     private function _bind($product){
         $this->product['product_category'] = array();
         foreach ($product as $key=>$value) {
+            
             if(isset($this->headers[$key]['add']) && $this->_isCl($this->headers[$key]['add'])){
                 $this->headers[$key]['add']->__invoke($key,$value,$this);
             }else{
@@ -679,12 +681,7 @@ class ModelFeedSheetsync extends Model {
         return $lenghts;
     }
     
-    public function fetchFieldList(){
-         $headers =  $this->headers;
-         foreach ($headers as $key=>$val){
-             
-         }
-    }
+    
 
     public function getFieldSets() {
         $categories = array(''=>'None');
@@ -1120,112 +1117,10 @@ class ModelFeedSheetsync extends Model {
             $headers['special'] = '{"field":"special","price":0,"group":"'.$customer_groups[$default_customer_group_id]['name'].'","date_start":"0000-00-00","date_end":"0000-00-00"}';
         }
 
-       
-//        print_r($headers); exit;
         return $headers;
     }
 
-    public function reformSetting($settings) {
-        $fields = unserialize(base64_decode($settings));
-//            echo "<pre>"; print_r($fields); 
-        $languages = $this->getLanguages();
-        $required_settings = array();
-        $headers = array();
-        $headers['product_id'] = 'product_id';
-        // Get the header ready for export
-        foreach ($fields['general']['required'] as $items) {
-            foreach ($fields['general']['defaults'] as $key => $value) {
-                $language = $languages[$key];
-                $trimmed = $items;
-                // check if the field require multilanguage values.
-                if (in_array($items, $this->multiple)) {
-                    if (isset($fields['general']['defaults'][$language['code']][$items])) {
-                        $headers[$trimmed .'_'. $language['code']] = $items . '_' . $language['code'];
-                    }
-                } else {
-
-                    // otherwise continue without language postfix
-                    // check if its category
-                    $code = $this->config->get('config_language');
-                    if ($items == 'category') {
-                        $count = $this->getMaxCategory(); // get the maximimum category count associated with the product
-                        for ($i = 1; $i <= $count; $i++) {
-                            $headers[$trimmed . $i . $code] = $items . '_' . $i.$code;
-                        }
-                    } else {
-                        $headers[$trimmed] = $items;
-                    }
-                }
-            }
-        }
-
-        if (isset($fields['attribute']['enable'])) {
-            foreach ($fields['attribute']['required'] as $item) {
-                foreach ($fields['attribute']['default'] as $key => $value) {
-                    $language = $languages[$key];
-                    $trimmed = $this->getAttributeName($item, $key);
-                    $headers['at'.$item.':' . $trimmed . '_' .$language['code']] = $this->getAttributeName($item, $key);
-                }
-            }
-        }
-
-        $customer_groups = $this->getCustomerGroup();
-        if (isset($fields['discount']['enable'])) {
-            for ($i = 1; $i <= $fields['discount_count']; $i++) {
-                if(isset($fields['discount']['required']['customer_group']))
-                    $headers['di' . $i . ':group'] = 'disc' . $i . 'group';
-                if(isset($fields['discount']['required']['quantity']))
-                    $headers['di' . $i . ':qty'] = 'disc' . $i . 'qty';
-//                if(isset($fields['discount']['required']['price']))
-                    $headers['di' . $i . ':price'] = 'disc' . $i . 'price';
-                if(isset($fields['discount']['required']['date_start']))
-                    $headers['di' . $i . ':start'] = 'disc' . $i . 'start';
-                if(isset($fields['discount']['required']['date_end']))
-                    $headers['di' . $i . ':end'] = 'disc' . $i . 'end';
-            }
-        }
-
-        if (isset($fields['special']['enable'])) {
-            for ($i = 1; $i <= $fields['special_count']; $i++) {
-                if(isset($fields['special']['required']['customer_group_id']))
-                    $headers['sp' . $i . ':group'] = 'spec' . $i . 'group';
-//                if(isset($fields['special']['required']['price']))
-                    $headers['sp' . $i . ':price'] = 'spec' . $i . 'price';
-                if(isset($fields['special']['required']['date_start']))
-                    $headers['sp' . $i . ':start'] = 'spec' . $i . 'start';
-                if(isset($fields['special']['required']['date_end']))
-                    $headers['sp' . $i . ':end'] = 'spec' . $i . 'end';
-            }
-        }
-
-        $formatted_header['General'] = $headers;
-        $filltered_option = array();
-        if (isset($fields['option']['enable'])) {
-            $filltered_array['product_id'] = 'product_id';
-            $filltered_array['model']= 'model';
-            $filltered_array['option_name']= 'optionname';
-            $filltered_array['option_type']= 'optiontype';
-            $filltered_array['option_value']= 'optionvalue';
-            
-            if(isset($fields['option']['sheet']['required']))
-                $filltered_array['required']= 'required';
-            if(isset($fields['option']['sheet']['quantity']))
-                $filltered_array['quantity']= 'quantity';
-            if(isset($fields['option']['sheet']['subtract_stock']))
-                $filltered_array['subtract_stock']= 'subtractstock';
-            if(isset($fields['option']['sheet']['price']))
-                $filltered_array['price']= 'price';
-            if(isset($fields['option']['sheet']['point']))
-                $filltered_array['point']= 'point';
-            if(isset($fields['option']['sheet']['weight']))
-                $filltered_array['weight']= 'weight';
-            $formatted_header['Option'] = $filltered_array;
-        }
-//        print_r($formatted_header); exit;
-        return $formatted_header;
-    }
-
-    public function getLanguagesByCode() {
+    public function getLanguagesByCode(){
         $languages = array();
         $query = $this->db->query("SELECT * FROM `" . DB_PREFIX . "language` ORDER BY `language_id`");
         if ($query->num_rows) {
@@ -1266,47 +1161,6 @@ class ModelFeedSheetsync extends Model {
             }
         }
         return $cgroup;
-    }
-
-    public function saveSettings($data) {
-        $query = $this->db->query("insert into " . DB_PREFIX . "gs_settings set title = '" . $this->db->escape($data['title']) . "', settings = '" . $this->db->escape($data['settings']) . "', created = '" . $this->db->escape($data['created']) . "' ");
-        $setting_id = $this->db->getLastId();
-        $reformedSettings = $this->buildJsonHeader($setting_id);
-        exit;
-        $this->db->query("update " . DB_PREFIX . "gs_settings set headers='" . base64_encode(serialize($reformedSettings)) . "' where id='" . $setting_id . "'");
-        $data['id'] = $setting_id;
-        $data['settings'] = base64_encode(serialize($reformedSettings));
-    }
-
-    public function updateSettings($data, $id) {
-        $query = $this->db->query("update " . DB_PREFIX . "gs_settings set title = '" . $this->db->escape($data['title']) . "', settings = '" . $this->db->escape($data['settings']) . "' where id='$id'");
-        $data['id'] = $id;
-        $reformedSettings = $this->buildJsonHeader($id);
-        exit;
-        $this->db->query("update " . DB_PREFIX . "gs_settings set headers='" . base64_encode(serialize($reformedSettings)) . "' where id='" . $id . "'");
-        $data['settings'] = base64_encode(serialize($reformedSettings));
-    }
-
-    public function getSetting($id) {
-        $query = $this->db->query("select * from " . DB_PREFIX . "gs_settings where id = '$id'");
-        if ($query->num_rows) {
-            return $query->row;
-        }
-    }
-
-    public function getSettings() {
-        $query = $this->db->query("select * from  " . DB_PREFIX . "gs_settings");
-        if ($query->num_rows)
-            return $query->rows;
-    }
-
-    public function deleteSetting($id) {
-        $query = $this->db->query("delete from " . DB_PREFIX . "gs_settings where id = '$id'");
-    }
-
-    public function deleteSelected($ids) {
-        $query = $this->db->query("delete from " . DB_PREFIX . "gs_settings where id IN ($ids)");
-        $this->call(array('action' => 'deleteSettings', 'ids' => $ids));
     }
 
     public function addSpreadSheet($data) { if(!isset($data['status'])) $data['status']=1;
@@ -1352,8 +1206,8 @@ class ModelFeedSheetsync extends Model {
 
     public function call($method,array $post = NULL, array $options = array(), $content_type = 'json') {
         $key = $this->config->get('ss_key');
-        if(empty($key))
-            die(json_encode(array('error'=>'Syncsheet Key is missing!')));
+//        if(empty($key))
+//            die(json_encode(array('error'=>'Syncsheet Key is missing!')));
 
         $data = array(
             'token' => $key,
@@ -1363,7 +1217,6 @@ class ModelFeedSheetsync extends Model {
             'content_type' => $content_type,
             'ocversion' => VERSION
         );
-
         $useragent = "Mozilla/5.0 (Windows; U; Windows NT 5.1; en-US; rv:1.8.1.1) Gecko/20061204 Firefox/2.0.0.1";
         $defaults = array(
             CURLOPT_POST => 1,
@@ -1421,103 +1274,9 @@ class ModelFeedSheetsync extends Model {
         return $query->rows;
     }
 
-    public function formatProduct($start, $limit, $setting_id=11, $filter_category=false) {
-        
-//        $this->writeLog('Start: '.$start. ' Limit: '.$limit,'limits');
-        
-        $this->load->model('catalog/product');
-        $this->load->model('catalog/category');
-        $products = array();
-        
-        $sql = "SELECT p.product_id FROM " . DB_PREFIX . "product p ";
-        if($filter_category)
-            $sql .= " LEFT JOIN " . DB_PREFIX . "product_to_category p2c ON (p.product_id=p2c.product_id) ";
-        $sql .= " LEFT JOIN " . DB_PREFIX . "product_description pd on (p.product_id=pd.product_id) where 1 ";
-        
-        if($filter_category)
-            $sql .= " AND p2c.category_id IN (".  implode(",", $filter_category).") ";
-        
-        $sql .= "GROUP BY p.product_id limit $start, $limit";
-        
-        $query = $this->db->query($sql);
+    
 
-        foreach ($query->rows as $product) {
-            $filltered_array = $this->formatSingleProduct($product, $setting_id);
-//            if ($headers)
-//                return $filltered_array;
-            $products[] = $filltered_array;
-        }
-//            echo "<pre>";
-//            print_r($products); exit;
-        return $products;
-    }
-
-    public function formatHeaders($setting_id) {
-        $name = 0;
-        $desc = 0;
-        $mdesc = 0;
-        $mkey = 0;
-        $tag = 0;
-        $settings = $this->reformSetting($setting_id); // $this->formatProduct(1,1,);
-
-        foreach ($settings['General'] as $key => $field) {
-            $filltered_array['General']['productid'] = 'Product ID';
-            switch ($field) {
-                case 'product_id': case 'seo_keyword': case 'model': case 'sku': case 'upc': case 'ean': case 'jan': case 'isbn': case 'mpn': case 'manufacturer':
-                case 'locatoin': case 'quantity': case 'image': case 'shipping': case 'price': case 'points': case 'date_available': case 'weight': case 'length': case 'width': case 'height': case 'subtract': case 'minimum': case 'sort_order': case 'status': case 'date_added': case 'date_modified':
-                    $header = ucwords(str_replace('_', ' ', $field));
-                    $filltered_array['General'][$key] = $header;
-                    break;
-                case 'category_1': case 'category_2': case 'category_3': case 'category_4': case 'category_5':
-                    $category = array();
-                    $header = ucwords(str_replace('_', ' ', $field));
-                    $fieldname = $field . $this->config->get('config_language');
-                    $filltered_array['General'][$fieldname] = $header;
-                    break;
-                case (preg_match('/^name.*/', $field) ? true : false) :
-                    $filltered_array['General'][$field] = ucwords($field);
-                    break;
-                case (preg_match('/^tag.*/', $field) ? true : false) :
-                    $tag++;
-                    $new_tag = str_replace('tag', 'tag' . $tag, $key);
-                    $filltered_array['General'][$new_tag] = ucwords($new_tag);
-                    break;
-//                case (preg_match('/^description.*/', $field) ? true : false) :
-//                    $filltered_array['General'][$field] = ucwords($field);
-//                    break;
-                case (preg_match('/^meta_description.*/', $field) ? true : false) :
-                    $mdesc++;
-                    $new_name = str_replace('metadescription', 'metadescription' . $mdesc, $key);
-                    $filltered_array['General'][$new_name] = ucwords($new_name);
-                    break;
-                case (preg_match('/^meta_keyword.*/', $field) ? true : false) :
-                    $mkey++;
-                    $new_name = str_replace('metakeyword', 'metakeyword' . $mkey, $key);
-                    $filltered_array['General'][$new_name] = ucwords($new_name);
-                    break;
-                case (preg_match('/^attr.*/', $key) ? true : false) :
-                    $filltered_array['General'][$key] = '';
-                    break;
-                case (preg_match('/disc.*/', $key) ? true : false) :
-                    $filltered_array['General'][$key] = '';
-                    break;
-                case (preg_match('/spec.*/', $key) ? true : false) :
-                    $filltered_array['General'][$key] = '';
-                    break;
-                case 'additional_images':
-                    $filltered_array['General'][$key] = 'Additional Images';
-                    break;
-                default:
-                    $filltered_array['General'][$key] = ucwords(str_replace('_', ' ', $field));
-                    break;
-            }
-        }
-
-        if (isset($settings['option']))
-            $filltered_array['Option'] = $settings['option'];
-//               print_r($filltered_array); exit;
-        return $filltered_array;
-    }
+    
 
     public function getProductOptionDesc($product_id, $option_id, $option_value_id) {
         $query = $this->db->query("SELECT l.code,description FROM `" . DB_PREFIX . "product_option_value_description` ovd LEFT JOIN `" . DB_PREFIX . "language` l ON (ovd.language_id=l.language_id) WHERE `product_id` ='" . $product_id . "' AND option_id='" . $option_id . "' AND option_value_id = '" . $option_value_id . "'");
@@ -1575,7 +1334,6 @@ class ModelFeedSheetsync extends Model {
     }
 
     public function getKeyword($id) {
-//            echo "select keyword from ".DB_PREFIX."url_alias where query = '".'product_id='.$id."'"; exit;
         $query = $this->db->query("select keyword from " . DB_PREFIX . "url_alias where query = '" . 'product_id=' . $id . "'");
         if ($query->row)
             return $query->row['keyword'];
@@ -1663,375 +1421,6 @@ class ModelFeedSheetsync extends Model {
 
     public function updateSetOptionId($data, $sheet_id) {
         return $this->call(array('action' => 'updateoptIds', 'id' => $sheet_id, 'ids' => $data));
-    }
-
-    public function syncImport($setting_id, $sheet_id, $newproducts) {
-        $this->model_feed_google_spreadsheet->writeLog('Inside syncImport() method.');
-        $setting = $this->getSetting($setting_id);
-        $setting = unserialize(base64_decode($setting['settings']));
-        foreach ($setting['general']['defaults'] as $key => $def) {
-            $defaults = $def;
-            break;
-        }
-
-        $desc_default = array(
-            'name' => '',
-            'description' => '',
-            'meta_keyword' => '',
-            'meta_description' => '',
-            'tag' => ''
-        );
-        if (!empty($setting_id) && !empty($sheet_id) && $newproducts) {
-
-//            $newproducts = $this->model_feed_google_spreadsheet->getSpreadsheetData($sheet_id, $setting_id);
-
-            $paths = $this->getPaths();
-            $categories = array();
-            foreach ($paths as $code=>$cats) {
-                foreach($cats as $cat)
-                    $categories[$code][html_entity_decode($cat['name'])] = $cat['category_id'];
-            }
-//print_r($newproducts); exit;
-            if ($newproducts) {
-                $this->model_feed_google_spreadsheet->writeLog('Total ' . count($newproducts) . ' products found in Google Spreadsheet');
-                $this->load->model('catalog/product');
-                $languages = $this->getLanguages();
-                $products = array();
-                foreach ($newproducts as $i => $product) { // loop all new products
-                    if (!is_numeric($product->productid)) { // perform an add operation
-                        foreach ($product as $key => $value) { // loop all the fields
-                            switch ($key) {
-                                case (preg_match('/^name.*/', $key) ? true : false):
-                                    $nameIndex = filter_var($key, FILTER_SANITIZE_NUMBER_INT);
-                                    list($name, $language) = explode($nameIndex, $key);
-                                    $language_id = isset($languages[$language]['language_id']) ? $languages[$language]['language_id'] : '0';
-                                    $products[$i]['product_description'][$language_id]['name'] = $value;
-                                    break;
-                                case (preg_match('/^tag.*/', $key) ? true : false):
-                                    $tagIndex = filter_var($key, FILTER_SANITIZE_NUMBER_INT);
-                                    list($name, $language) = explode($tagIndex, $key);
-                                    $language_id = isset($languages[$language]['language_id']) ? $languages[$language]['language_id'] : '0';
-                                    $products[$i]['product_description'][$language_id]['tag'] = $value;
-                                    break;
-                                case (preg_match('/^description.*/', $key) ? true : false) :
-                                    $nameIndex = filter_var($key, FILTER_SANITIZE_NUMBER_INT);
-                                    list($name, $language) = explode($nameIndex, $key);
-                                    $language_id = isset($languages[$language]['language_id']) ? $languages[$language]['language_id'] : '0';
-                                    $products[$i]['product_description'][$language_id]['description'] = $value;
-                                    break;
-                                case (preg_match('/^metakey.*/', $key) ? true : false) :
-                                    $nameIndex = filter_var($key, FILTER_SANITIZE_NUMBER_INT);
-                                    list($name, $language) = explode($nameIndex, $key);
-                                    $language_id = isset($languages[$language]['language_id']) ? $languages[$language]['language_id'] : '0';
-                                    $products[$i]['product_description'][$language_id]['meta_keyword'] = $value;
-                                    break;
-                                case (preg_match('/^metadesc.*/', $key) ? true : false) :
-                                    $nameIndex = filter_var($key, FILTER_SANITIZE_NUMBER_INT);
-                                    list($name, $language) = explode($nameIndex, $key);
-                                    $language_id = isset($languages[$language]['language_id']) ? $languages[$language]['language_id'] : '0';
-                                    $products[$i]['product_description'][$language_id]['meta_description'] = $value;
-                                    break;
-                                case (preg_match('/^category.*/', $key) ? true : false):
-                                    $category_id = 0;
-                                    $languageCode = substr($key,  strlen($key)-2,  strlen($key));
-                                    if (isset($categories[$languageCode][html_entity_decode($value)])) {
-                                        $category_id = $categories[$languageCode][html_entity_decode($value)];
-                                        if ($category_id)
-                                            $products[$i]['product_category'][] = $category_id;
-                                    }else {
-                                        if ($value)
-                                            $category_id = $this->saveCategory($value);
-                                        if ($category_id)
-                                            $products[$i]['product_category'][] = $category_id;
-                                    }
-                                    break;
-                                case (preg_match('/^disc.*/', $key) ? true : false):
-                                    $discIndex = filter_var($key, FILTER_SANITIZE_NUMBER_INT);
-                                    $discountHeader = explode($discIndex, $key);
-                                    if (isset($discountHeader[1])) {
-                                        $products[$i]['product_discount'][$discIndex]['priority'] = $discIndex;
-                                        switch ($discountHeader[1]) {
-                                            case "group":
-                                                $products[$i]['product_discount'][$discIndex]['customer_group_id'] = $value;
-                                                break;
-                                            case 'qty':
-                                                $products[$i]['product_discount'][$discIndex]['quantity'] = $value;
-                                                break;
-                                            case 'price':
-                                                $products[$i]['product_discount'][$discIndex]['price'] = $value;
-                                                break;
-                                            case 'start':
-                                                $products[$i]['product_discount'][$discIndex]['date_start'] = $value;
-                                                break;
-                                            case 'end':
-                                                $products[$i]['product_discount'][$discIndex]['date_end'] = $value;
-                                                break;
-                                        }
-                                    }
-                                    break;
-                                case (preg_match('/^spec.*/', $key) ? true : false):
-                                    $specIndex = filter_var($key, FILTER_SANITIZE_NUMBER_INT);
-                                    $discountHeader = explode($specIndex, $key);
-                                    if (isset($discountHeader[1])) {
-                                        $products[$i]['product_special'][$specIndex]['priority'] = $specIndex;
-                                        switch ($discountHeader[1]) {
-                                            case "group":
-                                                $products[$i]['product_special'][$specIndex]['customer_group_id'] = $value;
-                                                break;
-                                            case 'price':
-                                                $products[$i]['product_special'][$specIndex]['price'] = $value;
-                                                break;
-                                            case 'start':
-                                                $products[$i]['product_special'][$specIndex]['date_start'] = $value;
-                                                break;
-                                            case 'end':
-                                                $products[$i]['product_special'][$specIndex]['date_end'] = $value;
-                                                break;
-                                        }
-                                    }
-                                    break;
-                                case (preg_match('/^attr.*/', $key) ? true : false):
-                                    preg_match('/attr(\d+)/', $key, $matches);
-                                    if (isset($matches[1])) {
-                                        $attribute_id = $matches[1];
-                                        $language_code = substr($key, strlen($key) - 2, strlen($key));
-                                        $language_id = isset($languages[$language_code]['language_id']) ? $languages[$language_code]['language_id'] : '0';
-                                        $products[$i]['product_attribute'][$attribute_id]['name'] = '';
-                                        $products[$i]['product_attribute'][$attribute_id]['attribute_id'] = $attribute_id;
-                                        $products[$i]['product_attribute'][$attribute_id]['product_attribute_description'][$language_id]['text'] = $value;
-                                    }
-                                    break;
-                                case 'stockstatus':
-                                    $products[$i]['stock_status_id'] = $value;
-                                    break;
-                                case 'sortorder':
-                                    $products[$i]['sort_order'] = $value;
-                                    break;
-                                case 'seokeyword':
-                                    $products[$i]['keyword'] = $value;
-                                    break;
-                                case 'dateavailable':
-                                    $products[$i]['date_available'] = $value;
-                                    break;
-                                case 'taxclass':
-                                    $products[$i]['tax_class_id'] = $value;
-                                    break;
-                                case 'taxclassid':
-                                    $products[$i]['tax_class_id'] = $value;
-                                    break;
-                                case 'manufacturer':
-                                    $products[$i]['manufacturer_id'] = $this->saveManufacurer($value);
-                                    break;
-                                case 'productid':
-                                    $products[$i]['product_id'] = $value;
-                                    break;
-                                case 'additionalimage':
-                                    $images = explode('|', $value);
-                                    foreach ($images as $key => $image) {
-                                        $products[$i]['product_image'][$key]['image'] = $image;
-                                        $products[$i]['product_image'][$key]['sort_order'] = $key;
-                                    }
-                                    break;
-                                default:
-                                    $products[$i][$key] = $value;
-                            } // end of switch case
-                            //                                        
-                        } //end looping fields
-                    } else {  // this is an update operation
-                        foreach ($product as $key => $value) { // loop all the fields
-                            switch ($key) {
-                                case (preg_match('/^name.*/', $key) ? true : false):
-                                    $nameIndex = filter_var($key, FILTER_SANITIZE_NUMBER_INT);
-                                    list($name, $language) = explode($nameIndex, $key);
-                                    $language_id = isset($languages[$language]['language_id']) ? $languages[$language]['language_id'] : '0';
-                                    $products[$i]['product_description'][$language_id]['name'] = $value;
-                                    break;
-                                case (preg_match('/^tag.*/', $key) ? true : false):
-                                    $tagIndex = filter_var($key, FILTER_SANITIZE_NUMBER_INT);
-                                    list($name, $language) = explode($tagIndex, $key);
-                                    $language_id = isset($languages[$language]['language_id']) ? $languages[$language]['language_id'] : '0';
-                                    $products[$i]['product_description'][$language_id]['tag'] = $value;
-                                    break;
-                                case (preg_match('/^description.*/', $key) ? true : false) :
-                                    $nameIndex = filter_var($key, FILTER_SANITIZE_NUMBER_INT);
-                                    list($name, $language) = explode($nameIndex, $key);
-                                    $language_id = isset($languages[$language]['language_id']) ? $languages[$language]['language_id'] : '0';
-                                    $products[$i]['product_description'][$language_id]['description'] = $value;
-                                    break;
-                                case (preg_match('/^metakey.*/', $key) ? true : false) :
-                                    $nameIndex = filter_var($key, FILTER_SANITIZE_NUMBER_INT);
-                                    list($name, $language) = explode($nameIndex, $key);
-                                    $language_id = isset($languages[$language]['language_id']) ? $languages[$language]['language_id'] : '0';
-                                    $products[$i]['product_description'][$language_id]['meta_keyword'] = $value;
-                                    break;
-                                case (preg_match('/^metadesc.*/', $key) ? true : false) :
-                                    $nameIndex = filter_var($key, FILTER_SANITIZE_NUMBER_INT);
-                                    list($name, $language) = explode($nameIndex, $key);
-                                    $language_id = isset($languages[$language]['language_id']) ? $languages[$language]['language_id'] : '0';
-                                    $products[$i]['product_description'][$language_id]['meta_description'] = $value;
-                                    break;
-                                case (preg_match('/^category.*/', $key) ? true : false):
-                                    $category_id = 0;
-                                    if (isset($categories[html_entity_decode($value)])) {
-                                        $category_id = $categories[html_entity_decode($value)];
-                                        if ($category_id)
-                                            $products[$i]['product_category'][] = $category_id;
-                                    }else {
-                                        if ($value)
-                                            $category_id = $this->saveCategory($value);
-                                        if ($category_id)
-                                            $products[$i]['product_category'][] = $category_id;
-                                    }
-                                    break;
-                                case (preg_match('/^disc.*/', $key) ? true : false):
-                                    $discIndex = filter_var($key, FILTER_SANITIZE_NUMBER_INT);
-                                    $discountHeader = explode($discIndex, $key);
-                                    if (isset($discountHeader[1])) {
-                                        $products[$i]['product_discount'][$discIndex]['priority'] = $discIndex;
-                                        switch ($discountHeader[1]) {
-                                            case "group":
-                                                $products[$i]['product_discount'][$discIndex]['customer_group_id'] = $value;
-                                                break;
-                                            case 'qty':
-                                                $products[$i]['product_discount'][$discIndex]['quantity'] = $value;
-                                                break;
-                                            case 'price':
-                                                $products[$i]['product_discount'][$discIndex]['price'] = $value;
-                                                break;
-                                            case 'start':
-                                                $products[$i]['product_discount'][$discIndex]['date_start'] = $value;
-                                                break;
-                                            case 'end':
-                                                $products[$i]['product_discount'][$discIndex]['date_end'] = $value;
-                                                break;
-                                        }
-                                    }
-                                    break;
-                                case (preg_match('/^spec.*/', $key) ? true : false):
-                                    $specIndex = filter_var($key, FILTER_SANITIZE_NUMBER_INT);
-                                    $discountHeader = explode($specIndex, $key);
-                                    if (isset($discountHeader[1])) {
-                                        $products[$i]['product_special'][$specIndex]['priority'] = $specIndex;
-                                        switch ($discountHeader[1]) {
-                                            case "group":
-                                                $products[$i]['product_special'][$specIndex]['customer_group_id'] = $value;
-                                                break;
-                                            case 'price':
-                                                $products[$i]['product_special'][$specIndex]['price'] = $value;
-                                                break;
-                                            case 'start':
-                                                $products[$i]['product_special'][$specIndex]['date_start'] = $value;
-                                                break;
-                                            case 'end':
-                                                $products[$i]['product_special'][$specIndex]['date_end'] = $value;
-                                                break;
-                                        }
-                                    }
-                                    break;
-                                case (preg_match('/^attr.*/', $key) ? true : false):
-                                    preg_match('/attr(\d+)/', $key, $matches);
-                                    if (isset($matches[1])) {
-                                        $attribute_id = $matches[1];
-                                        $language_code = substr($key, strlen($key) - 2, strlen($key));
-                                        $language_id = isset($languages[$language_code]['language_id']) ? $languages[$language_code]['language_id'] : '0';
-                                        $products[$i]['product_attribute'][$attribute_id]['name'] = '';
-                                        $products[$i]['product_attribute'][$attribute_id]['attribute_id'] = $attribute_id;
-                                        $products[$i]['product_attribute'][$attribute_id]['product_attribute_description'][$language_id]['text'] = $value;
-                                    }
-                                    break;
-                                case 'stockstatus':
-                                    $products[$i]['product']['stock_status_id'] = $value;
-                                    break;
-                                case 'sortorder':
-                                    $products[$i]['product']['sort_order'] = $value;
-                                    break;
-                                case 'seokeyword':
-                                    $products[$i]['url_alias']['keyword'] = $value;
-                                    break;
-                                case 'dateavailable':
-                                    $products[$i]['product']['date_available'] = $value;
-                                    break;
-                                case 'taxclass':
-                                    $products[$i]['product']['tax_class_id'] = $value;
-                                    break;
-                                case 'taxclassid':
-                                    $products[$i]['product']['tax_class_id'] = $value;
-                                    break;
-                                case 'manufacturer':
-                                    $products[$i]['product']['manufacturer_id'] = $this->saveManufacurer($value);
-                                    break;
-                                case 'productid':
-                                    $products[$i]['product']['product_id'] = $value;
-                                    break;
-                                case 'additionalimage':
-                                    $images = explode('|', $value);
-                                    foreach ($images as $key => $image) {
-                                        $products[$i]['product_image'][$key]['image'] = $image;
-                                        $products[$i]['product_image'][$key]['sort_order'] = $key;
-                                    }
-                                    break;
-                                case 'model': case 'ean': case 'jan': case 'sku': case 'upc': case 'isbn': case 'mpn': case 'location': case 'quantity': case 'image': case 'shipping': case 'price': case 'points': case 'weight': case 'length': case 'width': case 'height': case 'subtract': case 'minimum': case 'status': case 'viewed':
-                                    $products[$i]['product'][$key] = $value;
-                                    break;
-                                default:
-                                    // Do nothing.
-                                    break;
-                            }
-                        }
-                    }
-                } //end looping products
-//print_r($products); exit;
-                $update = 0;
-                $added = 0;
-
-//                              //CHECK IF SHEET CONTAINS OPTIONS
-                if (isset($setting['option']['enable']) && $setting['option']['enable'])
-                    $optionsFeed = $this->getSpreadsheetOptions($sheet_id, $setting_id);
-//                print_r($optionsFeed); exit;
-                $updateOptions = array();
-
-                //NOW LOOP ALL THE PRODUCTS AND UPDATE THE PRODUCT IF EXISTS, ELSE ADD THE NEW ONE
-                foreach ($products as $pItem) {
-                    if (isset($pItem['product_id']) && !is_numeric($pItem['product_id'])) {
-                        $pItem = array_merge($defaults, $pItem);
-                        foreach ($pItem['product_description'] as $key => $pDesc)
-                            $pItem['product_description'][$key] = array_merge($desc_default, $pDesc);
-                        $new_product_id = $this->addProduct($pItem);
-                        $product_ids[$pItem['rowid']] = $new_product_id;
-
-                        //COLLECT PRODUCT IDS TO UPDATE THE OPTION SHEET IF OPTION EXISTS FOR THE PRODUCT
-                        if (isset($setting['option']['enable']) && $setting['option']['enable'])
-                            $updateOptions[$pItem['product_id']] = $new_product_id;
-                        $added++;
-                    }elseif (isset($pItem['product']['product_id'])) {
-                        $update++;
-                        $this->editProduct($pItem['product']['product_id'], $pItem);
-                    }
-                }
-
-                $this->model_feed_google_spreadsheet->writeLog('Products Updated: ' . $update . '. New Products created' . $added);
-
-                if (isset($product_ids) && !empty($product_ids)) {
-                    $new_option_ids = array();
-                    if(isset($optionsFeed) && !empty($optionsFeed)){
-                        foreach ($optionsFeed as $key => $option) {
-                            if (isset($updateOptions[$option->productid])) {
-                                $new_option_ids[$key + 2] = $updateOptions[$option->productid];
-                            }
-                        }
-                    }
-
-                    $this->updateSetProductId($product_ids, $sheet_id);
-                    if ($new_option_ids)
-                        $this->updateSetOptionId($new_option_ids, $sheet_id);
-                }
-
-                //FINALLY UPDATE THE OPTION SHEET WITH OPENCART, IF OPTIONS EXISTS
-                if (isset($setting['option']['enable']) && $setting['option']['enable'])
-                    $this->updateProductOption($setting_id, $sheet_id);
-            } // end of if new products
-        }
-        $this->cache->delete('*');
     }
 
     public function getPaths() {
@@ -2198,7 +1587,6 @@ class ModelFeedSheetsync extends Model {
             $sql .= ' where product_id="' . $product_id . '"';
             $queries[] = $sql;
         }
-//        print_r($queries); exit;
         if (isset($data['product_description'])) {
             foreach ($data['product_description'] as $language_id => $row) {
                 $sql = 'UPDATE `' . DB_PREFIX . 'product_description` SET ';
@@ -2221,7 +1609,7 @@ class ModelFeedSheetsync extends Model {
 
 
         if (isset($data['product_category'])) {
-            $queries[] = "DELETE FROM " . DB_PREFIX . "product_to_category WHERE product_id = '" . (int) $product_id . "'";
+//            $queries[] = "DELETE FROM " . DB_PREFIX . "product_to_category WHERE product_id = '" . (int) $product_id . "'";
             foreach ($data['product_category'] as $category_id) {
                 $queries[] = "INSERT IGNORE INTO " . DB_PREFIX . "product_to_category SET product_id = '" . (int) $product_id . "', category_id = '" . (int) $category_id . "'";
             }
@@ -2258,8 +1646,13 @@ class ModelFeedSheetsync extends Model {
             }
         }
         
+        if (isset($data['product']['keyword']) ){
+            $queries[] = "DELETE FROM " . DB_PREFIX . "url_alias WHERE query = 'product_id=" . (int)$product_id. "'";
+            $queries[] = "INSERT INTO " . DB_PREFIX . "url_alias SET query = 'product_id=" . (int) $product_id . "', keyword = '" . $this->db->escape($data['product']['keyword']) . "'";
+        }
+        
         foreach ($queries as $query) {
-            $this->writeLog($query, 'sql');
+            $this->writeLog($query,'sql');
             $this->db->query($query);
         }
     }
@@ -2271,8 +1664,7 @@ class ModelFeedSheetsync extends Model {
         foreach ($options as $key => $option) {
             $options[$key]->rowid = $key + 2;
         }
-        print_r($options);
-        exit;
+
         foreach ($options as $option) {
 //                $this->db->query("delete from " . DB_PREFIX . "product_option where product_id='".$option->productid."'");
 //                $this->db->query("delete from " . DB_PREFIX . "product_option_value where product_id='".$option->productid."'");
@@ -2301,8 +1693,6 @@ class ModelFeedSheetsync extends Model {
             $option_data[$option->productid] = $option;
         }
 
-        print_r($queries);
-        exit;
 //            print_r($option_data); exit;
     }
 

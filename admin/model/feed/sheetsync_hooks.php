@@ -35,8 +35,6 @@ $hooks[] = array(
         $catIndex = filter_var($field, FILTER_SANITIZE_NUMBER_INT);
         $cat = explode($catIndex, $field);
         $language_code = end($cat);
-//        print_r($product->languages);
-//        echo $language_code; exit;
         $language_id = isset($product->lg[$language_code]['language_id']) ? $product->lg[$language_code]['language_id'] : '0';
         $category = array(); $return=array();
         $cats = $product->getProductCategories($product->id);
@@ -176,17 +174,6 @@ $hooks[] = array(
 
 $hooks[] = array(
     'type'  => 'regex',
-    'match' => '/^store.*/',
-    'get'   =>  function($product,$field){ //print_r($product); exit;
-        return $product->getProductStore($product->id);
-    }
-);
-
-
-
-
-$hooks[] = array(
-    'type'  => 'regex',
     'match' => '/^at(\d+).*/',
     'get'   =>  function($product,$field){ 
         if (isset($product->attributes[$field])) { 
@@ -205,6 +192,17 @@ $hooks[] = array(
             $product->product['product_attribute'][$attribute_id]['attribute_id'] = $attribute_id;
             $product->product['product_attribute'][$attribute_id]['product_attribute_description'][$language_id]['text'] = $value;
         }
+    }
+);
+
+$hooks[] = array(
+    'type'  => 'regex',
+    'match' => '/^seo.*/',
+    'get'   =>  function($product,$field){
+        return (isset($product->product['seo_keyword']) && !empty($product->product['seo_keyword'])) ? html_entity_decode($product->product['seo_keyword']) : '';
+    },
+    'add'  => function($key,$value,$product){
+        $product->product['product']['keyword'] = $value;
     }
 );
 
