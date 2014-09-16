@@ -144,6 +144,7 @@ class ModelFeedSheetsync extends Model {
             $this->product['discount'] = json_encode($discounts);
         }
         $specials = $this->getProductSpecials($product_id);
+       
         if ($specials) {
             $this->product['special'] = json_encode($specials);
         }
@@ -153,9 +154,18 @@ class ModelFeedSheetsync extends Model {
         return $this;
     }
     
+    private function _beforetFilter(){
+        foreach ($this->headers as $head=>$fn){
+            if(isset($fn['beforetFilter']) && $this->_isCl($fn['beforetFilter'])){
+                $fn['beforetFilter']->__invoke($head,$this);
+            }
+        }
+    }
+    
     public function applyFilters(){
         require_once('sheetsync_hooks.php');
         $matches = array();
+        
         foreach($this->headers as $field){
             if($hook = $this->find($field,$hooks)){
                 $matches[$field] = $hook;
@@ -164,6 +174,7 @@ class ModelFeedSheetsync extends Model {
             }
         }
         $this->headers = $matches;
+        $this->_beforetFilter();
         return $this;
     }
     
@@ -440,7 +451,6 @@ class ModelFeedSheetsync extends Model {
     public function prepareSet(){
        
         $this->setting = unserialize(base64_decode($this->setting['settings']));
-         
         if(!$this->setting)
             die(array('error'=>true,'msg'=>'Settings not found'));
         foreach($this->setting['general']['defaults'] as $key => $def) {
@@ -456,22 +466,28 @@ class ModelFeedSheetsync extends Model {
             'tag' => ''
         );
         
-        $this->default_discount = array(
-            'customer_group_id' => $this->setting['discount']['customer_group'],
-            'quantity'          => $this->setting['discount']['quantity'],
-            'priority'          => $this->setting['discount']['priority'],
-            'price'             => $this->setting['discount']['price'],
-            'date_start'        => $this->setting['discount']['date_start'],
-            'date_end'          => $this->setting['discount']['date_end'],
-        );
         
-        $this->default_special = array(
-            'customer_group_id' => $this->setting['special']['customer_group'],
-            'priority'          => $this->setting['special']['priority'],
-            'price'             => $this->setting['special']['price'],
-            'date_start'        => $this->setting['special']['date_start'],
-            'date_end'          => $this->setting['special']['date_end'],
-        );
+        if(!$this->default_discount){
+            $this->default_discount = array(
+                'customer_group_id' => $this->setting['discount']['customer_group'],
+                'quantity'          => $this->setting['discount']['quantity'],
+                'priority'          => $this->setting['discount']['priority'],
+                'price'             => $this->setting['discount']['price'],
+                'date_start'        => $this->setting['discount']['date_start'],
+                'date_end'          => $this->setting['discount']['date_end'],
+            );
+        }
+        if(!$this->default_special){
+            $this->default_special = array(
+                'customer_group_id' => $this->setting['special']['customer_group'],
+                'priority'          => $this->setting['special']['priority'],
+                'price'             => $this->setting['special']['price'],
+                'date_start'        => $this->setting['special']['date_start'],
+                'date_end'          => $this->setting['special']['date_end'],
+            );
+        }
+        
+        $this->option_default = $this->setting['option'];
         //
         $paths = $this->getPaths();
         
@@ -487,7 +503,6 @@ class ModelFeedSheetsync extends Model {
     }
     
     public function set(){
-        
         if ($this->setting && $this->productfeed){
             
             $this->load->model('catalog/product');
@@ -495,7 +510,7 @@ class ModelFeedSheetsync extends Model {
             $this->response=array();
             $update = 0;
             $added = 0;
-            
+//            print_r($this->productfeed); exit;
             foreach ($this->productfeed as $i => $product) {
                 $this->_bind($product);
                 if(!is_numeric($product->product_id)) {
@@ -505,6 +520,9 @@ class ModelFeedSheetsync extends Model {
                     if(!empty($product->product_id) && $new_product_id)
                         $this->response['created'][$product->product_id] = $new_product_id;
                 }else{
+                    $this->_mergeDiscount();
+                    $this->_mergeSpecial();
+                    $this->_mergeOption();
                     $update++;
                     $this->editProduct($product->product_id, $this->product);
                     $this->response['updated'] = $update;
@@ -519,9 +537,8 @@ class ModelFeedSheetsync extends Model {
     }
     
     private function _bind($product){
-        $this->product['product_category'] = array();
+        
         foreach ($product as $key=>$value) {
-            
             if(isset($this->headers[$key]['add']) && $this->_isCl($this->headers[$key]['add'])){
                 $this->headers[$key]['add']->__invoke($key,$value,$this);
             }else{
@@ -539,15 +556,7 @@ class ModelFeedSheetsync extends Model {
     }
     
     private function _merge(){
-       
-        if(isset($this->product['product_discount']))
-            foreach ($this->product['product_discount'] as $kk => $pdisc)
-               $this->product['product_discount'][$kk] = array_merge($this->default_discount, $pdisc);
-        
-        if(isset($this->product['product_special']))
-            foreach ($this->product['product_special'] as $kk => $pspec)
-               $this->product['product_special'][$kk] = array_merge($this->default_special, $pspec);
-        
+      
         if(isset($this->product['product_description']))
            foreach ($this->product['product_description'] as $key => $pDesc)
                $this->product['product_description'][$key] = array_merge($this->desc_default, $pDesc);
@@ -555,7 +564,29 @@ class ModelFeedSheetsync extends Model {
         $this->product['product'] = array_merge($this->defaults, $this->product['product']);
         
         if(!isset($product->product['product_store']))
-                $this->product['product_store'][0] = $this->product['product']['store'];
+                $this->product['product_store'][0] = 0;
+        
+        $this->_mergeDiscount();
+        $this->_mergeSpecial();
+        $this->_mergeOption();
+    }
+    
+    private function _mergeDiscount(){
+        if(isset($this->product['product_discount']))
+            foreach($this->product['product_discount'] as $kk => $pdisc)
+               $this->product['product_discount'][$kk] = array_merge($this->default_discount, $pdisc);
+    }
+    
+    private function _mergeSpecial(){
+        if(isset($this->product['product_special']))
+            foreach ($this->product['product_special'] as $kk => $pspec)
+               $this->product['product_special'][$kk] = array_merge($this->default_special, $pspec);
+    }
+    
+    private function _mergeOption(){
+        if(isset($this->product['product_option']))
+            foreach($this->product['product_option'] as $kk => $poption)
+               $this->product['product_option'][$kk] = array_merge($this->option_default, $poption);
     }
     
     public function _setOptions(){
@@ -1106,15 +1137,19 @@ class ModelFeedSheetsync extends Model {
                 }
             }
         }
+        
+        if(isset($fields['option']['enable'])) {
+            $headers['options'] = '{"field":"options"}';
+        }
 
         $customer_groups = $this->getCustomerGroup();
         $default_customer_group_id = $this->config->get('config_customer_group_id');
         if (isset($fields['discount']['enable'])) {
-            $headers['discount'] = '{"field":"discount","price":0,"quantity":0,"group":"'.$customer_groups[$default_customer_group_id]['name'].'","date_start":"0000-00-00","date_end":"0000-00-00"}';
+            $headers['discount'] = '{"field":"discount","price":0,"priority":0,"quantity":0,"group":"'.$customer_groups[$default_customer_group_id]['name'].'","date_start":"0000-00-00","date_end":"0000-00-00"}';
         }
 
         if (isset($fields['special']['enable'])) {
-            $headers['special'] = '{"field":"special","price":0,"group":"'.$customer_groups[$default_customer_group_id]['name'].'","date_start":"0000-00-00","date_end":"0000-00-00"}';
+            $headers['special'] = '{"field":"special","price":0,"priority":0,"group":"'.$customer_groups[$default_customer_group_id]['name'].'","date_start":"0000-00-00","date_end":"0000-00-00"}';
         }
 
         return $headers;
@@ -1162,6 +1197,16 @@ class ModelFeedSheetsync extends Model {
         }
         return $cgroup;
     }
+    
+    public function getCustomerGroupByName($name) {
+        $cgroup = array();
+        $query = $this->db->query("select * from " . DB_PREFIX . "customer_group_description where name = '{$name}' limit 0, 1");
+        if($query->num_rows) {
+            return $query->row;
+        }
+    }
+    
+    
 
     public function addSpreadSheet($data) { if(!isset($data['status'])) $data['status']=1;
         $this->db->query("insert into " . DB_PREFIX . "gs_spreadsheets set `title` = '" . $this->db->escape($data['title']) . "' ,`key` = '" . $this->db->escape($data['key']) . "', `status` = '" . $this->db->escape($data['status']) . "', `setting_id` = '" . $this->db->escape($data['setting_id']) . "', `created` = NOW(),`updated`=NOW()");
@@ -1576,7 +1621,7 @@ class ModelFeedSheetsync extends Model {
         return $product_id;
     }
 
-    public function editProduct($product_id, $data) {
+    public function editProduct($product_id,$data) {
         $queries = array();
         if ($data['product']) {
             $sql = 'UPDATE `' . DB_PREFIX . 'product` SET ';
@@ -1587,7 +1632,7 @@ class ModelFeedSheetsync extends Model {
             $sql .= ' where product_id="' . $product_id . '"';
             $queries[] = $sql;
         }
-        if (isset($data['product_description'])) {
+        if (isset($data['product_description'])){
             foreach ($data['product_description'] as $language_id => $row) {
                 $sql = 'UPDATE `' . DB_PREFIX . 'product_description` SET ';
                 foreach ($row as $field => $value) {
@@ -1609,12 +1654,12 @@ class ModelFeedSheetsync extends Model {
 
 
         if (isset($data['product_category'])) {
-//            $queries[] = "DELETE FROM " . DB_PREFIX . "product_to_category WHERE product_id = '" . (int) $product_id . "'";
+            $queries[] = "DELETE FROM " . DB_PREFIX . "product_to_category WHERE product_id = '" . (int) $product_id . "'";
             foreach ($data['product_category'] as $category_id) {
                 $queries[] = "INSERT IGNORE INTO " . DB_PREFIX . "product_to_category SET product_id = '" . (int) $product_id . "', category_id = '" . (int) $category_id . "'";
             }
         }
-
+ 
         if (isset($data['product_discount'])) {
             $queries[] = "DELETE FROM " . DB_PREFIX . "product_discount WHERE product_id = '" . (int) $product_id . "'";
             foreach ($data['product_discount'] as $product_discount) {
@@ -1625,14 +1670,11 @@ class ModelFeedSheetsync extends Model {
 
         if (isset($data['product_special'])) {
             $queries[] = "DELETE FROM " . DB_PREFIX . "product_special WHERE product_id = '" . (int) $product_id . "'";
-            foreach ($data['product_special'] as $product_special) {
+            foreach($data['product_special'] as $product_special){
                 if ($product_special['price'])
                     $queries[] = "INSERT INTO " . DB_PREFIX . "product_special SET product_id = '" . (int) $product_id . "', customer_group_id = '" . (int) $product_special['customer_group_id'] . "', priority = '" . (int) $product_special['priority'] . "', price = '" . (float) $product_special['price'] . "', date_start = '" . $this->db->escape($product_special['date_start']) . "', date_end = '" . $this->db->escape($product_special['date_end']) . "'";
             }
         }
-
-
-
         if (!empty($data['product_attribute'])) {
 //            $queries[] = "DELETE FROM " . DB_PREFIX . "product_attribute WHERE product_id = '" . (int) $product_id . "'";
             foreach ($data['product_attribute'] as $product_attribute) {
@@ -1650,10 +1692,17 @@ class ModelFeedSheetsync extends Model {
             $queries[] = "DELETE FROM " . DB_PREFIX . "url_alias WHERE query = 'product_id=" . (int)$product_id. "'";
             $queries[] = "INSERT INTO " . DB_PREFIX . "url_alias SET query = 'product_id=" . (int) $product_id . "', keyword = '" . $this->db->escape($data['product']['keyword']) . "'";
         }
-        
         foreach ($queries as $query) {
             $this->writeLog($query,'sql');
             $this->db->query($query);
+        }
+        
+        if(isset($data['product_option'])){
+            $this->db->query("DELETE FROM " . DB_PREFIX . "product_option WHERE product_id = '" . (int)$product_id . "'");
+            $this->db->query("DELETE FROM " . DB_PREFIX . "product_option_value WHERE product_id = '" . (int)$product_id . "'");
+            foreach($data['product_option'] as $option){
+                $this->saveOption($option,$product_id);
+            }
         }
     }
 
@@ -1732,53 +1781,57 @@ class ModelFeedSheetsync extends Model {
 
     public function updateProductOption($setting_id, $sheet_id) {
         $options = $this->getSpreadsheetOptions($sheet_id, $setting_id);
-        $language_id = $this->config->get('config_language_id');
+        
         foreach ($options as $option) {
             $this->saveOption($option, $language_id);
         }
     }
 
-    public function saveOption($option, $language_id){
-
-        if (isset($option->productid) && is_numeric($option->productid)) {
-            $product_id = $option->productid;
-        }else
+    public function saveOption($option, $product_id){
+       
+        if(is_array($option))
+            $option = (object)$option;
+        
+        $language_id = $this->config->get('config_language_id');
+    
+        
+        if (!$product_id && !is_numeric($product_id))
             return false;
 
         $extended_types = array('select', 'radio', 'checkbox', 'image');
         $option_types = array('select', 'radio', 'checkbox', 'image', 'text', 'textarea', 'file', 'date', 'time', 'datetime');
 
         $option->required = ($option->required == 'Yes' || $option->required == 'yes' || $option->required == 'Y' || $option->required == 1) ? 1 : 0;
-        $option->subtractstock = ($option->subtractstock == 'Yes') ? 1 : 0;
+        $option->subtract_stock = ($option->subtract_stock == 'Yes' || $option->subtract_stock == 1) ? 1 : 0;
         $is_new = false;
         $data = array();
         
         // validate parameters
         //
-		if (!in_array($option->optiontype, $option_types)) {
-                    $this->writeLog("Invalid option type - $option->optiontype");
+		if (!in_array($option->type, $option_types)) {
+                    $this->writeLog("Invalid option type - $option->type");
                     return false;
                 }
 
         // STAGE 1: find the option in the store
         //
-        $qry = $this->db->query("SELECT o.option_id FROM `" . DB_PREFIX . "option` o INNER JOIN " . DB_PREFIX . "option_description od ON o.option_id = od.option_id WHERE language_id = '" . $language_id . "' AND o.type='$option->optiontype' AND od.name='$option->optionname'");
+        $qry = $this->db->query("SELECT o.option_id FROM `" . DB_PREFIX . "option` o INNER JOIN " . DB_PREFIX . "option_description od ON o.option_id = od.option_id WHERE language_id = '" . $language_id . "' AND  od.name='$option->name'");
 
         if (empty($qry->row)) {
             // if the option is NOT found
             //
 			
-            $this->db->query("insert into `" . DB_PREFIX . "option` set type='" . $option->optiontype . "'");
+            $this->db->query("insert into `" . DB_PREFIX . "option` set type='" . $option->type . "'");
             $option_id = $this->db->getLastId();
 
             $is_new = true;
 
-            $this->db->query("insert into " . DB_PREFIX . "option_description set option_id='$option_id', language_id='" . $language_id . "', name='" . $this->db->escape($option->optionname) . "'");
-            $this->writeLog("New option created - $option->optionname");
+            $this->db->query("insert into " . DB_PREFIX . "option_description set option_id='$option_id', language_id='" . $language_id . "', name='" . $this->db->escape($option->name) . "'");
+            $this->writeLog("New option created - $option->name");
 
             // repeat option request
             //
-	    $qry = $this->db->query("SELECT o.option_id FROM `" . DB_PREFIX . "option` o INNER JOIN " . DB_PREFIX . "option_description od ON o.option_id = od.option_id WHERE language_id = '" . $language_id . "' AND o.type='$option->optiontype' AND od.name='$option->optionname'");
+	    $qry = $this->db->query("SELECT o.option_id FROM `" . DB_PREFIX . "option` o INNER JOIN " . DB_PREFIX . "option_description od ON o.option_id = od.option_id WHERE language_id = '" . $language_id . "' AND o.type='$option->type' AND od.name='$option->name'");
         }
 
         //
@@ -1792,7 +1845,7 @@ class ModelFeedSheetsync extends Model {
           extended - options with predefined values
          */
         $extended = false;
-        if (in_array($option->optiontype, $extended_types)) {
+        if (in_array($option->type, $extended_types)) {
             $extended = true;
         }
 
@@ -1815,7 +1868,7 @@ class ModelFeedSheetsync extends Model {
 			$qry = $this->db->query("SELECT option_value_id FROM " . DB_PREFIX . "option_value_description WHERE 
 				option_id = '" . $option_id . "'
 				AND language_id = '" . $language_id . "'
-				AND name='" . $this->db->escape($option->optionvalue) . "'");
+				AND name='" . $this->db->escape($option->option_value) . "'");
 
 
 
@@ -1824,7 +1877,7 @@ class ModelFeedSheetsync extends Model {
                 $this->db->query("insert into " . DB_PREFIX . "option_value set option_id='" . $option->option_id . "'");
                 $option_value_id = $this->db->getLastId();
 
-                $this->db->query("insert into " . DB_PREFIX . "option_value_description set option_id='" . $option->option_id . "', option_value_id='" . $option_value_id . "', language_id='" . $language_id . "', name='" . $this->db->escape($option->optionvalue) . "'");
+                $this->db->query("insert into " . DB_PREFIX . "option_value_description set option_id='" . $option->option_id . "', option_value_id='" . $option_value_id . "', language_id='" . $language_id . "', name='" . $this->db->escape($option->option_value) . "'");
             } else {
                 $option_value_id = $qry->row['option_value_id'];
             }
@@ -1839,7 +1892,7 @@ class ModelFeedSheetsync extends Model {
                 'option_id' => $option_id,
                 'option_value_id' => $option_value_id,
                 'quantity' => $option->quantity,
-                'subtract' => $option->subtractstock,
+                'subtract' => $option->subtract_stock,
                 'price' => abs($option->price),
                 'price_prefix' => ($option->price < 0 ? '-' : '+'),
                 'points' => abs($option->point),
@@ -1856,7 +1909,7 @@ class ModelFeedSheetsync extends Model {
             $this->db->query($sql);
             $product_option_value_id = $this->db->getLastId();
         } else {
-            $this->db->query("update " . DB_PREFIX . "product_option set required='" . $option->required . "', option_value='" . $option->optionvalue . "' where product_option_id='$product_option_id'");
+            $this->db->query("update " . DB_PREFIX . "product_option set required='" . $option->required . "', value='" . $option->option_value . "' where product_option_id='$product_option_id'");
         }
         return true;
     }

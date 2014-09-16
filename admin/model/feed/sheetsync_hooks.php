@@ -56,6 +56,9 @@ $hooks[] = array(
     'add'   =>  function($key,$value,$product){
         $category_id = 0;
         $catIndex = filter_var($key, FILTER_SANITIZE_NUMBER_INT);
+        if($catIndex==1)
+            $product->product['product_category']=array();
+        
         $cat = explode($catIndex, $key);
         $languageCode = end($cat);
        
@@ -69,7 +72,6 @@ $hooks[] = array(
                 if ($category_id)
                     $product->product['product_category'][] = $category_id;
             }
-        
     }
 );
 
@@ -157,6 +159,9 @@ $hooks[] = array(
     'get'   =>  function($product,$field){
         $imgs = array();
         $images = $product->model_catalog_product->getProductImages($product->id);
+        if($images){
+            $product->product['product_image'] = array();
+        }
         foreach ($images as $image) {
             $imgs[] = $image['image'];
         }
@@ -170,7 +175,72 @@ $hooks[] = array(
         }
     }
     
-);                                    
+);   
+
+$hooks[] = array(
+    'type'  => 'regex',
+    'match' => '/^discount.*/',
+    'beforetFilter'=> function($header,$product){
+        $regex = "/\{(.*?)\}/";
+        preg_match($regex, $header, $match);
+        parse_str($match[1],$parsed_header);
+        if(isset($parsed_header['group']))
+            $group = $product->getCustomerGroupByName($parsed_header['group']);
+            $parsed_header['customer_group_id'] = $group['customer_group_id'];
+        $product->default_discount = $parsed_header;
+    },
+    'add' => function($key,$value,$product){
+        $value = str_replace("'","\"", $value);
+        $dicounts = json_decode($value);
+        if($dicounts){
+            $product->product['product_discount'] = array();
+            foreach($dicounts as $item){
+                $product->product['product_discount'][] = (array)$item;
+            }
+        }
+    }
+);
+
+$hooks[] = array(
+    'type'  => 'regex',
+    'match' => '/^special.*/',
+    'beforetFilter'=> function($header,$product){
+        $regex = "/\{(.*?)\}/";
+        preg_match($regex, $header, $match);
+        parse_str($match[1],$parsed_header);
+        if(isset($parsed_header['group']))
+            $group = $product->getCustomerGroupByName($parsed_header['group']);
+            $parsed_header['customer_group_id'] = $group['customer_group_id'];
+        $product->default_special = $parsed_header;
+    },
+    'get'=>function($product,$field){
+       
+        return $product->product['special'];
+    },
+    'add' => function($key,$value,$product){
+        $value = str_replace("'","\"", $value);
+        $special = json_decode($value);
+        if($special){
+            $product->product['product_special'] = array();
+            foreach($special as $item){
+                $product->product['product_special'][] = (array)$item;
+            }
+        }
+    }
+);
+
+$hooks[] = array(
+    'type'  => 'regex',
+    'match' => '/^option.*/',
+    'add' => function($key,$value,$product){
+        $value = str_replace("'","\"", $value);
+        $options = json_decode($value);
+        if($options)
+        foreach($options as $item){
+            $product->product['product_option'][] = (array)$item;
+        }
+    }
+);
 
 $hooks[] = array(
     'type'  => 'regex',

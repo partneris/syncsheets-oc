@@ -1,5 +1,5 @@
 <?php 
-define('GSS_VERSION', "0.0.4");
+define('GSS_VERSION', "0.0.5");
 class ControllerFeedSheetsync extends Controller {
 	private $error = array(); 
         
@@ -82,7 +82,6 @@ class ControllerFeedSheetsync extends Controller {
                            $products = base64_decode($this->request->post['products']);
                            $this->load->model('catalog/product');
                            $this->load->model('catalog/category');
-                          
                            $instance = $this->model_feed_sheetsync
                             ->setHeaders($headers)
                             ->applyFilters();
@@ -98,6 +97,7 @@ class ControllerFeedSheetsync extends Controller {
                             die(json_encode($json));
                     break;
                 case 'columnupdate':
+                    
                     $rows = json_decode(base64_decode($this->request->post['rows']));
                     $instance = $this->model_feed_sheetsync
                             ->setAction('update')
@@ -262,6 +262,12 @@ class ControllerFeedSheetsync extends Controller {
             $cats = $this->model_feed_sheetsync->getPaths();
             
             $this->data['category'] = $cats;
+            
+            $response = $this->model_feed_sheetsync->call('version_check');
+            $this->data['version_notice'] = '';
+            if(version_compare($response->Version->version_no, GSS_VERSION) === 1){
+                 $this->data['version_notice'] = "A new version is available now - {".$response->Version->title." - v." . $response->Version->version_no . '}';
+            }
             
             if(!$this->config->get('google_spreadsheet_auth')){
                 $this->data['error_warning'] = "Please use your google credentials to access Google Spreadsheet. <br/><a href='".$this->url->link('feed/sheetsync/account', 'token=' . $this->session->data['token'], 'SSL')."'>Click Here</a> to setup Now";

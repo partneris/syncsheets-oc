@@ -139,11 +139,36 @@
                         <td><input type="text" name="data[option][option_value]" id="option_value_text" value="<?php if($edit && isset($settings['option']['option_value'])) echo $settings['option']['option_value']; ?>" /></td>
                     </tr>
                     <tr>
-                        <td><input <?php if($edit && isset($settings['option']['sheet']['quantity'])) echo "checked=checked"; ?> type="checkbox" name="data[option][sheet][quantity]" value="1" />Quantity</td>
+                        <td>Option Type</td>
+                        <td>
+                        <select name="data[option][type]">
+                            <optgroup label="Choose">
+                                    <option <?php if($edit && isset($settings['option']['type']) && $settings['option']['type']=='select') echo "selected=selected"; ?> value="select">Select</option>
+                                    <option <?php if($edit && isset($settings['option']['type']) && $settings['option']['type']=='radio') echo "selected=selected"; ?> value="radio">Radio</option>
+                                    <option <?php if($edit && isset($settings['option']['type']) && $settings['option']['type']=='checkbox') echo "selected=selected"; ?> value="checkbox">Checkbox</option>
+                                    <option <?php if($edit && isset($settings['option']['type']) && $settings['option']['type']=='image') echo "selected=selected"; ?> value="image">Image</option>
+                            </optgroup>
+                            <optgroup label="Input">
+                                <option <?php if($edit && isset($settings['option']['type']) && $settings['option']['type']=='text') echo "selected=selected"; ?> value="text">Text</option>
+                                <option <?php if($edit && isset($settings['option']['type']) && $settings['option']['type']=='textarea') echo "selected=selected"; ?> value="textarea">Textarea</option>
+                                </optgroup>
+                            <optgroup label="File">
+                                <option <?php if($edit && isset($settings['option']['type']) && $settings['option']['type']=='file') echo "selected=selected"; ?> value="file">File</option>
+                            </optgroup>
+                            <optgroup label="Date">
+                                <option <?php if($edit && isset($settings['option']['type']) && $settings['option']['type']=='date') echo "selected=selected"; ?> value="date">Date</option>
+                                <option <?php if($edit && isset($settings['option']['type']) && $settings['option']['type']=='time') echo "selected=selected"; ?> value="time">Time</option>
+                                <option <?php if($edit && isset($settings['option']['type']) && $settings['option']['type']=='datetime') echo "selected=selected"; ?> value="datetime">Date &amp; Time</option>
+                            </optgroup>
+                        </select>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>Quantity</td>
                         <td><input type="text" name="data[option][quantity]" value="<?php if($edit && isset($settings['option']['quantity'])) echo $settings['option']['quantity']; ?>" /></td>
                     </tr>
                     <tr>
-                        <td><input <?php if($edit && isset($settings['option']['sheet']['required'])) echo "checked=checked"; ?> type="checkbox" name="data[option][sheet][required]" value="1" />Required</td>
+                        <td>Required</td>
                         <td><select name="data[option][required]">
                                 <option <?php if($edit && isset($settings['option']['quantity']) && $settings['option']['quantity']==0) echo "selected=selected"; ?> value="0">No</option>
                                 <option <?php if($edit && isset($settings['option']['quantity']) && $settings['option']['quantity']==1) echo "selected=selected"; ?> value="1">Yes</option>
@@ -151,7 +176,7 @@
                         </td>
                     </tr>
                     <tr>
-                        <td><input <?php if($edit && isset($settings['option']['sheet']['substract_stock'])) echo "checked=checked"; ?> type="checkbox" name="data[option][sheet][substract_stock]" value="1" />Subtract Stock:</td>
+                        <td>Subtract Stock:</td>
                         <td><select name="data[option][substract_stock]">
                                 <option <?php if($edit && isset($settings['option']['quantity']) && $settings['option']['substract_stock']==1) echo "selected=selected"; ?> value="1">Yes</option>
                                 <option <?php if($edit && isset($settings['option']['quantity']) && $settings['option']['substract_stock']==0) echo "selected=selected"; ?> value="0">No</option>
@@ -159,7 +184,7 @@
                         </td>
                     </tr>
                     <tr>
-                        <td><input <?php if($edit && isset($settings['option']['sheet']['price'])) echo "checked=checked"; ?> type="checkbox" name="data[option][sheet][price]" value="1" />Price</td>
+                        <td>Price</td>
                         <td><select name="data[option][pre_price]">
                                 <option <?php if($edit && isset($settings['option']['pre_price']) && $settings['option']['pre_price']=='+') echo "selected=selected"; ?> value="+">+</option>
                                 <option <?php if($edit && isset($settings['option']['pre_price']) && $settings['option']['pre_price']=='-') echo "selected=selected"; ?> value="-">-</option>
@@ -168,7 +193,7 @@
                         </td>
                     </tr>
                     <tr>
-                        <td><input <?php if($edit && isset($settings['option']['sheet']['point'])) echo "checked=checked"; ?> type="checkbox" name="data[option][sheet][point]" value="1" />Point</td>
+                        <td>Point</td>
                         <td><select name="data[option][point_prefix]">
                                 <option <?php if($edit && isset($settings['option']['point_prefix']) && $settings['option']['point_prefix']=='+') echo "selected=selected"; ?> value="+">+</option>
                                 <option <?php if($edit && isset($settings['option']['point_prefix']) && $settings['option']['point_prefix']=='-') echo "selected=selected"; ?> value="-">-</option>
@@ -177,7 +202,7 @@
                         </td>
                     </tr>
                     <tr>
-                        <td><input <?php if($edit && isset($settings['option']['sheet']['weight'])) echo "checked=checked"; ?> type="checkbox" name="data[option][sheet][weight]" value="1" />Weight</td>
+                        <td>Weight</td>
                         <td><input value="<?php if($edit && isset($settings['option']['weight'])) echo $settings['option']['weight']; ?>" type="text" name="data[option][weight]"/></td>
                     </tr>
               </tbody>

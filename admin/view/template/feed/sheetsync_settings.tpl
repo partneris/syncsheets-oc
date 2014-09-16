@@ -5,6 +5,12 @@
         background-repeat: no-repeat;
         height: 12px; width: 12px; float: right; margin: 3px 9px;
     }
+    .files{
+    height: 300px;
+    list-style: none outside none;
+    overflow-y: scroll;
+    width: 600px;}
+    .files li{float: left}
 </style>
 <div id="content">
   <div class="breadcrumb">
@@ -12,6 +18,10 @@
     <?php echo $breadcrumb['separator']; ?><a href="<?php echo $breadcrumb['href']; ?>"><?php echo $breadcrumb['text']; ?></a>
     <?php } ?>
   </div>
+   <?php if ($version_notice) { ?>
+  <div class="success"><?php echo $version_notice; ?></div>
+  <?php } ?> 
+    
   <?php if ($error_warning) { ?>
   <div class="warning"><?php echo $error_warning; ?></div>
   <?php } ?>
@@ -181,7 +191,13 @@ var ajax = 'index.php?route=feed/sheetsync/ajax&token=<?php echo $_GET['token'];
     $(document).on('click','._install',function(e){ e.preventDefault(); $('.loading').show();
         $.post(ajax,{action:'update_version'},function(r){ r=$.parseJSON(r);
             $('.loading').hide();
-            $('#installNew').html('<center><h1>'+r.msg+'</h1></center>');
+            var files = r.files;
+            var html = '<i>Following files were updated!</i><br/><ul class=files>';
+            for(i in files){ var item=files[i];
+                html += '<li>'+item+'</li>';
+            }
+            html += '</ul>';
+            $('#installNew').html('<center><h1>'+r.msg+'</h1>'+html+'</center>');
         });
     });
     
