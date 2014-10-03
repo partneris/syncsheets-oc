@@ -49,6 +49,7 @@
         
         <div id="tabs" class="htabs">
             <a href="#tab-sheets">Sheets</a>
+            <a href="#tab-settings">Sheets Setting</a>
             <a href="#tab-about">About</a>
         </div>
    
@@ -88,7 +89,34 @@
                 </table>
             </form>
         </div>
-        
+        <div id="tab-settings">
+            <form id="form" action="<?php echo $action; ?>" method="post">
+                <table class="list">
+                <thead>
+                  <tr>
+                        <td width="1" style="text-align: center;"><input type="checkbox" onclick="$('input[name*=\'selected\']').attr('checked', this.checked);" /></td>
+                        <td class="left">Setting</td>
+                        <td class="right">Action</td>
+                  </tr>
+                </thead>
+                <tbody>
+                  <?php if ($settings) { ?>
+                  <?php foreach ($settings as $setting) { ?>
+                  <tr>
+                    <td><input type="checkbox" name="selected[]" value="<?php echo $setting['id']; ?>" /></td>
+                    <td class="left"><?php echo $setting['title']; ?></td>
+                    <td class="right"><a href="index.php?route=feed/syncsheets/setting&token=<?php echo $_GET['token'];?>&id=<?php echo $setting['id']; ?>">Edit</a> | <a href="#">Delete</a></td>
+                  </tr>
+                  <?php } ?>
+                  <?php } else { ?>
+                  <tr>
+                    <td class="center" colspan="8">No settings found!</td>
+                  </tr>
+                  <?php } ?>
+                </tbody>
+                </table>
+            </form>
+        </div>
         <div id="tab-about">
             <table>
                 <tr><td class="left"><b>Current Syncsheet Version</b></td><td class="left"><?php echo GSS_VERSION; ?></td></tr>
@@ -139,6 +167,16 @@
             <tr>
                 <td>Title</td>
                 <td><input style="width: 200px;" id="sheetitle" type="text" name="sheettitle" /></td>
+            </tr>
+            <tr>
+                <td>Select Settings</td>
+                <td><select id="sSetting" name="setting_id">
+                        <?php foreach($settings as $setting): ?>
+                        <option value="<?php echo $setting['id']; ?>"><?php echo $setting['title']; ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </td>
+                
             </tr>
         </tbody>
         </table>
@@ -253,7 +291,7 @@ var ajax = 'index.php?route=feed/syncsheets/ajax&token=<?php echo $_GET['token']
     $(document).ready(function(){
  
     $('#addblank').click(function(e){ e.preventDefault();
-        $("#addnewsheet" ).data('current', this).dialog({width:300,
+        $("#addnewsheet" ).data('current', this).dialog({width:400,
             open:function(){
                 var $this = $.data(this,'current');
             },
@@ -264,8 +302,9 @@ var ajax = 'index.php?route=feed/syncsheets/ajax&token=<?php echo $_GET['token']
             },buttons:{
                'Add Sheet':function(){
                    var title=$('#sheetitle').val();
+                   var setting=$('#sSetting').val();
                    var dia = $(this);
-                   $.post(ajax,{action:'createsheet',title:title},function(r){ r=$.parseJSON(r);
+                   $.post(ajax,{action:'createsheet',title:title,setting_id:setting},function(r){ r=$.parseJSON(r);
                        dia.dialog("close");
                        if(r.error)
                            alert(r.error)

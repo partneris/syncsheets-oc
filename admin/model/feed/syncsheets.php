@@ -1123,32 +1123,21 @@ class ModelFeedSyncsheets extends Model {
             }
         }
 
-
-        if(isset($fields['attribute']['required'])){
-            foreach($fields['attribute']['required'] as $item) {
+        foreach($fields['attribute']['required'] as $item) {
                 foreach($fields['attribute']['default'] as $key => $value) {
                     $language = $languages[$key];
                     $trimmed = $this->getAttributeName($item, $key);
                     $headers['at'.$item.':'.$language['code']] = '{"field":"attribute","id":'.$item.',"lang":"'.$language['code'].'","name":"'.$trimmed.'"}';
                 }
             }
-        }
-
         
-        if(isset($fields['option']['enable'])) {
-            $headers['options'] = '{"field":"options"}';
-        }
-
+        $headers['options'] = '{"field":"options"}';
+       
         $customer_groups = $this->getCustomerGroup();
         $default_customer_group_id = $this->config->get('config_customer_group_id');
-        if (isset($fields['discount']['enable'])) {
-            $headers['discount'] = '{"field":"discount","price":0,"priority":0,"quantity":0,"group":"'.$customer_groups[$default_customer_group_id]['name'].'","date_start":"0000-00-00","date_end":"0000-00-00"}';
-        }
-
-        if (isset($fields['special']['enable'])) {
-            $headers['special'] = '{"field":"special","price":0,"priority":0,"group":"'.$customer_groups[$default_customer_group_id]['name'].'","date_start":"0000-00-00","date_end":"0000-00-00"}';
-        }
-
+        $headers['discount'] = '{"field":"discount","price":0,"priority":0,"quantity":0,"group":"'.$customer_groups[$default_customer_group_id]['name'].'","date_start":"0000-00-00","date_end":"0000-00-00"}';
+        $headers['special'] = '{"field":"special","price":0,"priority":0,"group":"'.$customer_groups[$default_customer_group_id]['name'].'","date_start":"0000-00-00","date_end":"0000-00-00"}';
+        
         return $headers;
     }
 
@@ -2087,6 +2076,19 @@ class ModelFeedSyncsheets extends Model {
             $query = $this->db->query("update " . DB_PREFIX . "gs_settings set title = '" . $this->db->escape($data['title']) . "', settings = '" . $this->db->escape($data['settings']) . "' where id='$setting_id'");
         $data['id'] = $setting_id;
         $this->call('saveSetting',$data);
+        
+    }
+    
+    public function getSetting($id) {
+        $query = $this->db->query("select * from " . DB_PREFIX . "gs_settings where id = '$id'");
+        if ($query->num_rows) {
+            return $query->row;
+        }
+    } 
+    public function getSettings() {
+        $query = $this->db->query("select * from  " . DB_PREFIX . "gs_settings");
+        if ($query->num_rows)
+            return $query->rows;
     }
 	
 }
