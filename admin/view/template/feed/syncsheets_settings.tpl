@@ -5,6 +5,16 @@
         background-repeat: no-repeat;
         height: 12px; width: 12px; float: right; margin: 3px 9px;
     }
+    .ld{
+        background-image: url('view/image/loading.gif');
+        background-repeat: no-repeat;
+        height: 12px; width: 12px;
+         float: left;
+        position: relative;
+        right: 12px;
+        top: 16px;
+        z-index: 9999
+    }
     .files{
     height: 300px;
     list-style: none outside none;
@@ -31,7 +41,7 @@
       <div class="buttons">
       
       <a onclick="$('#form').submit();" class="button">Delete</a>
-      <a href="index.php?route=feed/sheetsync/setting&token=<?php echo $_GET['token'] ?>" class="button">Add Setting</a>
+      <a href="index.php?route=feed/syncsheets/setting&token=<?php echo $_GET['token'] ?>" class="button">Add Setting</a>
       <a href="<?php echo $cancel; ?>" class="button"><?php echo $button_cancel; ?></a>
       </div>
     </div>
@@ -43,14 +53,15 @@
         </div>
    
         <div id="tab-sheets">
+            <?php if(!$install): ?>
             <a href="#" id="addblank">Create New Sheet</a>
+            <?php endif; ?>
             <form action="" method="post">
                 <table class="list">
                     <thead>
                         <tr>
                             <td class="left">Sr.No.</td>
                             <td class="left">Title</td>
-                            <td class="left">Setting</td>
                             <td class="left">Sheet</td>
                             <td class="left">Last Sync</td>
                             <td class="left">Last Updated</td>
@@ -62,7 +73,7 @@
                             <tr>
                                 <td class="left"><?php echo $key+1; ?></td>
                                 <td class="left"><?php echo $sheet['title']; ?></td>
-                                <td class="left"><?php echo $sheet['setting']; ?></td>
+                                
                                 <td class="left"><a target="_blank" href="https://docs.google.com/spreadsheets/d/<?php echo $sheet['key']; ?>/edit">Launch</a></td>
                                 <td class="left"><?php echo $sheet['last_sync']; ?></td>
                                 <td class="left"><?php echo $sheet['updated']; ?></td>
@@ -134,9 +145,110 @@
     </form>
 </div>
 
+<?php if($install): ?>
+<div style="display: none;" id="installation">
+    <div id="step1">
+        <div class="content box">
+            <h2>Welcome to <b>Syncsheets</b></h2>
+            <hr/>
+            <p>End Users may use and import Scripts or Add-ons created by third parties, including Google. Scripts and Add-ons are the sole responsibility of the entity that makes it available. Google makes no representations about the performance, quality, content, or continued availability of any Script or Add-on.</p>
+
+            <p>Google does not promise that any Script or Add-on will work for your purposes, or that it is free from viruses, bugs, or other defects. Scripts and Add-ons are provided "as is" and without warranty of any kind. Google provides no express warranties, guarantees and conditions with regard to the Scripts and Add-ons. To the extent permitted under applicable law, Google excludes the implied warranties and conditions of merchantability, fitness for a particular purpose, workmanlike effort, title and non-infringement.</p>
+
+            <p>Scripts and Add-ons are subject to change at any time. Using or importing any Script or Add-ons is at your own risk. You should only run the script if you trust the developer of the Script or Add-on, as you are solely responsible for any compromise or loss of data that may result from using this Script or Add-on.</p>
+        </div>
+    </div>
+    
+    <div id="step2">
+        <div class="content box">
+            <form class="inform" action="" method="post" >
+                &nbsp;&nbsp;<b>Attention! Following Information will be used. You can change/remove.</b>
+                <table class="form">
+                    <tr>
+                        <td>Store Name</td>
+                        <td><input size="30" type="text" name="inf[store]" value="<?php echo $this->config->get('config_name'); ?>" /></td>
+                    </tr>
+                    <tr>
+                        <td>Store Owner</td>
+                        <td><input size="30" type="text" name="inf[owner]" value="<?php echo $this->config->get('config_owner'); ?>" /></td>
+                    </tr>
+                    <tr>
+                        <td> Address</td>
+                        <td><textarea rows="3" cols="30" name="inf[address]"><?php echo $this->config->get('config_address'); ?></textarea></td>
+                    </tr>
+                    <tr>
+                        <td>Email</td>
+                        <td><input size="30" type="text" name="inf[email]" value="<?php echo $this->config->get('config_email'); ?>" /></td>
+                    </tr>
+                    <tr>
+                        <td>Telephone</td>
+                        <td><input size="30" type="text" name="inf[telephone]" value="<?php echo $this->config->get('config_telephone'); ?>" /></td>
+                    </tr>
+                    <tr>
+                        <td>Store Identifier</td>
+                        <td><input size="40" readonly="true" type="text" name="inf[server]" value="<?php echo HTTP_SERVER; ?>" /></td>
+                    </tr>
+                </table>
+                <input type="hidden" name="action" value="signup" />
+            </form>
+        </div>
+    </div>
+    <div id="step3">
+        <center><h1>You are ready now!</h1>
+        <p><a class="activate" target="_blank">Click here</a> to Activate your account</p>
+        <em>This action requires you must have google account.</em>
+        </center>
+    </div>
+</div>
+<script type="text/javascript">
+    var xhr = 'index.php?route=feed/syncsheets/ajax&token=<?php echo $_GET['token']; ?>';
+     $("#step1").data('current', this).dialog({
+         title:"Syncsheets: Terms & Conditions",modal:true,width:700,height:400,closeOnEscape: false,open: function(event, ui) { $(".ui-dialog-titlebar-close", ui.dialog || ui).hide(); },
+         buttons:{
+               'I Agree':function(){
+                   $(this).dialog("close");
+                   step2();
+               },
+                Disagree: function() {
+                    $(this).dialog( "close" );
+                }
+            }
+     });
+     function step2(){
+         $("#step2" ).data('current', this).dialog({
+         title:"Syncsheets: Installation - Step 2",modal:true,width:700,height:400,closeOnEscape: false,open: function(event, ui) { $(".ui-dialog-titlebar-close", ui.dialog || ui).hide(); },
+         buttons:{
+               'Next':function(){
+                  $('.ui-dialog-buttonset').prepend('<span class="ld" />')
+                   $.post(xhr,$('.inform :input'),function(r){ r=$.parseJSON(r);
+                       if(r.status){
+                           $('.ld').remove();
+                           $('#step3 .activate').attr('href',r.link);
+                           step3();
+                       }
+                   });
+               },
+                'Close': function() {$(this).dialog( "close" );}
+            }
+        });
+     }
+     
+     function step3(){
+         $("#step3" ).data('current', this).dialog({
+         title:"Syncsheets: Installation - Step 3",modal:true,width:700,height:400,closeOnEscape: false,open: function(event, ui) { $(".ui-dialog-titlebar-close", ui.dialog || ui).hide(); },
+         buttons:{
+               'Finish':function(){
+                  var link = $('#step3 .activate').attr('href');
+                  window.open(link, '_blank');
+               },
+            }
+        });
+     }
+</script>
+<?php endif; ?>
 <script type="text/javascript">
 $('#tabs a').tabs();
-var ajax = 'index.php?route=feed/sheetsync/ajax&token=<?php echo $_GET['token']; ?>';
+var ajax = 'index.php?route=feed/syncsheets/ajax&token=<?php echo $_GET['token']; ?>';
     var $form = $('#addSheetform');
     $(document).ready(function(){
  
@@ -153,12 +265,12 @@ var ajax = 'index.php?route=feed/sheetsync/ajax&token=<?php echo $_GET['token'];
                'Add Sheet':function(){
                    var title=$('#sheetitle').val();
                    var dia = $(this);
-                   $.post(ajax,{action:'addTemplate',title:title},function(r){ r=$.parseJSON(r);
+                   $.post(ajax,{action:'createsheet',title:title},function(r){ r=$.parseJSON(r);
                        dia.dialog("close");
                        if(r.error)
                            alert(r.error)
                        else
-                            window.location.href="index.php?route=feed/sheetsync&token=<?php echo $_GET['token']; ?>&msg=1";
+                            window.location.href="index.php?route=feed/syncsheets&token=<?php echo $_GET['token']; ?>&msg=1";
                    });
                },
                 Cancel: function() {
@@ -228,7 +340,7 @@ var ajax = 'index.php?route=feed/sheetsync/ajax&token=<?php echo $_GET['token'];
                    var dia = $(this);
                    $.post(ajax,{action:'editSheet',title:title,key:key,setting_id:setting,id:$($this).attr('sid')},function(r){ r=$.parseJSON(r);
                        dia.dialog("close");
-                       window.location.href="index.php?route=feed/sheetsync&token=<?php echo $_GET['token']; ?>&msg=3";
+                       window.location.href="index.php?route=feed/syncsheets&token=<?php echo $_GET['token']; ?>&msg=3";
                    });
                },
                 Cancel: function() {
@@ -256,7 +368,7 @@ var ajax = 'index.php?route=feed/sheetsync/ajax&token=<?php echo $_GET['token'];
            $('#loader').dialog({ height: 150,width:200}); 
                var sheet = $(this).attr('sid');
                $.post(ajax,{action:'delSheet','id':sheet},function(){
-                   window.location.href="index.php?route=feed/sheetsync&token=<?php echo $_GET['token']; ?>&msg=4";
+                   window.location.href="index.php?route=feed/syncsheets&token=<?php echo $_GET['token']; ?>&msg=4";
                });
        }
        

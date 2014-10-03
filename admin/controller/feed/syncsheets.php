@@ -1,14 +1,19 @@
 <?php 
-define('GSS_VERSION', "0.0.5");
-class ControllerFeedSheetsync extends Controller {
+define('GSS_VERSION', "0.0.3");
+class ControllerFeedSyncsheets extends Controller {
 	private $error = array(); 
+        public $_log = array();
         
+        public function _msg($message,$type='Notice'){
+            $this->_log[] = date('Y-m-d G:i:s') . ' - ' . $type .' : '. $message . "\n";
+        }
+
         public function feeds(){
             if(!isset($this->request->get['action'])){
                 die(json_encode(array('error'=>'Error 901: Sorry, Unable to serve request!')));
             }
             $action = $this->request->get['action'];
-            $this->load->model('feed/sheetsync');
+            $this->load->model('feed/syncsheets');
             switch($action){
                 case 'oauth2callback':
                         set_include_path(DIR_SYSTEM . 'library' );
@@ -17,7 +22,7 @@ class ControllerFeedSheetsync extends Controller {
                         $client = new Google_Client();
                         
                         $this->load->model('setting/setting');
-                        $settings = $this->model_setting_setting->getSetting('sheetsync');
+                        $settings = $this->model_setting_setting->getSetting('syncsheets');
                         $client->setClientId($settings['client_id']);
                         $client->setClientSecret($settings['client_secret']);
                         $client->setRedirectUri($settings['redirect_uri']);
@@ -29,7 +34,7 @@ class ControllerFeedSheetsync extends Controller {
                         if(isset($etoken->refresh_token))
                            $settings['refresh_token'] = $etoken->refresh_token;
                         $settings['google_spreadsheet_auth'] = 1;
-                        $this->model_setting_setting->editSetting('sheetsync',$settings,$this->config->get('store_id'));
+                        $this->model_setting_setting->editSetting('syncsheets',$settings,$this->config->get('store_id'));
                         echo "<html><head><title>Syncsheet Account verification</title></head><body>";
                         echo "<center><h1>SyncSheet</h1><h3 style=color:green>A new access token has been generated successfully!</h3><h4><a href='javascript:window.close()'>Go Back</a></h4></center>";
                         echo "<script>
@@ -44,16 +49,16 @@ class ControllerFeedSheetsync extends Controller {
                     $this->setting();
                     break;
                 case 'getLanguageMeta':
-                    $languages = $this->model_feed_sheetsync->getLanguagesByCode();
+                    $languages = $this->model_feed_syncsheets->getLanguagesByCode();
                     $default =  $this->config->get('config_language');
                     die(json_encode(array('languages'=>$languages,'default'=>$default)));
                     break;
                 case 'getHeaders':
-                    $headers = $this->model_feed_sheetsync->buildJsonHeader($this->request->post['settings']);
+                    $headers = $this->model_feed_syncsheets->buildJsonHeader($this->request->post['settings']);
                     die(json_encode($headers));
                     break;
                case 'getcount':
-                       $count = $this->model_feed_sheetsync->getProductsCount(array());
+                       $count = $this->model_feed_syncsheets->getProductsCount(array());
                        die(json_encode(array('count'=>$count)));
                     break;
                case 'oc2gss':
@@ -69,7 +74,7 @@ class ControllerFeedSheetsync extends Controller {
                     break;
                 case 'sync':
                        $rows = json_decode(base64_decode($this->request->post['rows']));
-                       $instance = $this->model_feed_sheetsync
+                       $instance = $this->model_feed_syncsheets
                                         ->setSetting($this->request->post['settings'])
                                         ->setProductFeed($rows)
                                         ->extractHeader()
@@ -82,7 +87,7 @@ class ControllerFeedSheetsync extends Controller {
                            $products = base64_decode($this->request->post['products']);
                            $this->load->model('catalog/product');
                            $this->load->model('catalog/category');
-                           $instance = $this->model_feed_sheetsync
+                           $instance = $this->model_feed_syncsheets
                             ->setHeaders($headers)
                             ->applyFilters();
                            
@@ -99,7 +104,7 @@ class ControllerFeedSheetsync extends Controller {
                 case 'columnupdate':
                     
                     $rows = json_decode(base64_decode($this->request->post['rows']));
-                    $instance = $this->model_feed_sheetsync
+                    $instance = $this->model_feed_syncsheets
                             ->setAction('update')
                             ->setSetting($this->request->post['settings'])
                             ->setProductFeed($rows)
@@ -107,6 +112,29 @@ class ControllerFeedSheetsync extends Controller {
                             ->applyFilters()
                             ->prepareSet()
                             ->set();
+                    break;
+                // category sheet operations starts here //
+                case 'cat_gss2oc':
+                    $this->cat_gss2oc();
+                    break;
+                case 'cat_save':
+                    $cats = array();
+                    $rows = json_decode(base64_decode($this->request->post['rows']));
+                    $update = 0; $added = 0;$category_ids=array();$response=array();
+                    foreach($rows as $key=>$item){
+                        $category = $this->model_feed_syncsheets->prepareCategory($item);
+                        if(is_numeric($category['category_id'])){
+                            $this->model_feed_syncsheets->editCategory($category['category_id'],$category);
+                            $response['updated'] = ++$update;
+                        }else{
+                            $category_ids[$category['category_id']] = $this->model_feed_syncsheets->addCategory($category);
+                            $response['created'] = ++$added;
+                        }
+                    }
+                    if($category_ids)
+                        $response['items'] = $category_ids;
+                    $this->model_feed_syncsheets->repairCategories();
+                    die(json_encode($response));
                     break;
             }
         }
@@ -116,11 +144,11 @@ class ControllerFeedSheetsync extends Controller {
             $this->load->model('catalog/category');
             //alter database shopbeautyfor  default character set utf8 COLLATE utf8_unicode_ci;
             
-            $instance = $this->model_feed_sheetsync
+            $instance = $this->model_feed_syncsheets
                             ->setAction('export')
                             ->setHeaders($headers)
                             ->applyFilters();
-            $products = $this->model_feed_sheetsync->fetchProducts($start,$limit);
+            $products = $this->model_feed_syncsheets->fetchProducts($start,$limit);
             $json = array();
             foreach($products as $product){
                $_product = $instance->setId($product['product_id'])
@@ -131,151 +159,75 @@ class ControllerFeedSheetsync extends Controller {
             }
             die(json_encode($json));
         }
-
-        public function install(){
-            $this->load->model('feed/sheetsync');
-            $this->model_feed_sheetsync->install();
-        }
         
-       
-        
-        public function account() {
-            	$this->language->load('feed/sheetsync');
-
-		$this->document->setTitle($this->language->get('heading_title'));
-		
-		$this->load->model('setting/setting');
-			
-		if (($this->request->server['REQUEST_METHOD'] == 'POST') && $this->validate()){
-                    $this->load->model('feed/sheetsync');
-                    $post = $this->request->post;
-                    $this->model_setting_setting->editSetting('sheetsync',$post);
-                    
-                    $this->session->data['success'] = $this->language->get('text_success');
-                    $this->redirect($this->url->link('feed/sheetsync', 'token=' . $this->session->data['token'], 'SSL'));
-     		}
-                
-                if (isset($this->session->data['success'])) {
-			$this->data['success'] = $this->session->data['success'];
-		
-			unset($this->session->data['success']);
-		} else {
-			$this->data['success'] = '';
-		}
-                
-                if (isset($this->session->data['error_warning'])) {
-			$this->data['error_warning'] = $this->session->data['error_warning'];
-		
-			unset($this->session->data['error_warning']);
-		} else {
-			$this->data['error_warning'] = '';
-		}
-
-		$this->data['heading_title'] = $this->language->get('heading_title');
-		
-		$this->data['text_enabled'] = $this->language->get('text_enabled');
-		$this->data['text_disabled'] = $this->language->get('text_disabled');
-		
-		$this->data['entry_status'] = $this->language->get('entry_status');
-                $this->data['entry_user'] = $this->language->get('entry_user');
-                $this->data['entry_pass'] = $this->language->get('entry_pass');
-                $this->data['entry_ssKey'] = $this->language->get('entry_ssKey');
-                $this->data['entry_wsKey'] = $this->language->get('entry_wsKey');
-		$this->data['entry_data_feed'] = $this->language->get('entry_data_feed');
-		
-		$this->data['button_save'] = $this->language->get('button_save');
-		$this->data['button_cancel'] = $this->language->get('button_cancel');
-
-		$this->data['tab_general'] = $this->language->get('tab_general');
-
- 		
-		
-  		$this->data['breadcrumbs'] = array();
-
-   		$this->data['breadcrumbs'][] = array(
-       		'text'      => $this->language->get('text_home'),
-			'href'      => $this->url->link('common/home', 'token=' . $this->session->data['token'], 'SSL'),
-      		'separator' => false
-   		);
-
-   		$this->data['breadcrumbs'][] = array(
-       		'text'      => $this->language->get('text_feed'),
-			'href'      => $this->url->link('extension/feed', 'token=' . $this->session->data['token'], 'SSL'),
-      		'separator' => ' :: '
-   		);
-
-   		$this->data['breadcrumbs'][] = array(
-       		'text'      => $this->language->get('heading_title'),
-			'href'      => $this->url->link('feed/sheetsync', 'token=' . $this->session->data['token'], 'SSL'),
-      		'separator' => ' :: '
-   		);
-				
-		$this->data['action'] = $this->url->link('feed/sheetsync/account', 'token=' . $this->session->data['token'], 'SSL');
-		
-		$this->data['cancel'] = $this->url->link('extension/feed', 'token=' . $this->session->data['token'], 'SSL');
-		
-                $this->data['gs'] = $this->model_setting_setting->getSetting('sheetsync');
-
-                if(!isset($this->data['gs']['google_spreadsheet_status'])){
-                    $this->data['gs']['google_spreadsheet_status'] = 0;
-                }
-                
-                if(!isset($this->data['gs']['google_spreadsheet_user'])){
-                    $this->data['gs']['google_spreadsheet_user'] = '';
-                }
-                
-                if(!isset($this->data['gs']['google_spreadsheet_pass'])){
-                    $this->data['gs']['google_spreadsheet_pass'] = '';
-                }
-                
-                if(!isset($this->data['gs']['google_spreadsheet_sskey'])){
-                    $this->data['gs']['google_spreadsheet_sskey'] = '';
-                }
-                
-                if(!isset($this->data['gs']['google_spreadsheet_wskey'])){
-                    $this->data['gs']['google_spreadsheet_wskey'] = '';
-                }
-                if(!isset($this->data['gs']['client_id'])){
-                    $this->data['gs']['client_id'] = '';
-                }
-                if(!isset($this->data['gs']['client_secret'])){
-                    $this->data['gs']['client_secret'] = '';
-                }
-                if(!isset($this->data['gs']['ss_key'])){
-                    $this->data['gs']['ss_key'] = '';
+        public function cat_gss2oc(){
+            $defaults = array();
+            $headers = $this->request->post['headers'];
+            foreach($headers as $item)
+                $defaults[$item] = '';
+            $catByLang = $this->model_feed_syncsheets->fetchLanguageCategory(); 
+//            print_r($catByLang); exit;
+            $category_new = array();
+            $categories = array();
+                $code = $this->config->get('config_admin_language');
+                foreach($catByLang[$code] as $category){ 
+                    $path = explode(' > ',$category['path']);
+                        $category_name = end($path);
+                        $category_level = count($path);
+                        $category_new[$category['category_id']]['category_id'] = $category['category_id'];
+                        $category_new[$category['category_id']] = array_merge($defaults,$category_new[$category['category_id']]);
+                        if(isset($defaults['level'.$category_level.$code]))
+                            $category_new[$category['category_id']]['level'.$category_level.$code]  = html_entity_decode($category_name);
+                        if(isset($defaults['path_'.$code]))
+                            $category_new[$category['category_id']]['path_'.$code] = html_entity_decode($category['path']);
                 }
                
-		$this->data['data_feed'] = HTTP_CATALOG . 'index.php?route=feed/sheetsync';
+                foreach($catByLang as $code => $results){
+                    foreach($results as $category){
+                        foreach($headers as $item){ if(preg_match('/level/', $item)) continue;
+                            $without_language = str_replace('_'.$code,'',$item);
+                            if(isset($category[$without_language])){
+                                $category_new[$category['category_id']][$item]  = html_entity_decode($category[$without_language]);
+                            }
+                        }
+                      
+                    }
+                }
+//                print_r($category_new); exit;
+           die(json_encode($category_new));
+        }
 
-		$this->template = 'feed/sheetsync_account.tpl';
-		$this->children = array(
-			'common/header',
-			'common/footer'
-		);
-				
-		$this->response->setOutput($this->render());
-	} 
+        public function install(){
+            $this->load->model('feed/syncsheets');
+            $this->model_feed_syncsheets->install();
+        }
         
         public function index(){
-            $this->load->model('feed/sheetsync');
+            $this->load->model('feed/syncsheets');
             
-            $cats = $this->model_feed_sheetsync->getPaths();
+            $cats = $this->model_feed_syncsheets->getPaths();
             
             $this->data['category'] = $cats;
             
-            $response = $this->model_feed_sheetsync->call('version_check');
+            $result = $this->model_feed_syncsheets->call('verify');
+           
+            if($result->status){
+                $this->data['install'] = false;
+            }else{
+                 $this->data['install'] = true;
+            }
+                
+            $response = $this->model_feed_syncsheets->call('version_check');
             $this->data['version_notice'] = '';
             if(version_compare($response->Version->version_no, GSS_VERSION) === 1){
                  $this->data['version_notice'] = "A new version is available now - {".$response->Version->title." - v." . $response->Version->version_no . '}';
             }
             
-            if(!$this->config->get('google_spreadsheet_auth')){
-                $this->data['error_warning'] = "Please use your google credentials to access Google Spreadsheet. <br/><a href='".$this->url->link('feed/sheetsync/account', 'token=' . $this->session->data['token'], 'SSL')."'>Click Here</a> to setup Now";
-            }else{
-                $this->data['error_warning'] = '';
-            }
+           
+            $this->data['error_warning'] = '';
+            
          
-           unset($this->session->data['uid']);
+            unset($this->session->data['uid']);
             if(!isset($this->session->data['uid'])){
                 $this->session->data['uid'] = uniqid(rand());
             }
@@ -285,15 +237,15 @@ class ControllerFeedSheetsync extends Controller {
             if (($this->request->server['REQUEST_METHOD'] == 'POST') && $this->validate()) {
                 if(isset($this->request->post['selected'])){
                     $ids = implode(',', $this->request->post['selected']);
-                    $this->model_feed_sheetsync->deleteSelected($ids);
+                    $this->model_feed_syncsheets->deleteSelected($ids);
                     $this->session->data['success'] = $this->language->get('text_success');
-                    $this->redirect($this->url->link('feed/sheetsync', 'token=' . $this->session->data['token'], 'SSL'));
+                    $this->redirect($this->url->link('feed/syncsheets', 'token=' . $this->session->data['token'], 'SSL'));
                 }
             }
             
-            $this->data['sheets'] = $this->model_feed_sheetsync->fetchSpreadSheets();
+            $this->data['sheets'] = $this->model_feed_syncsheets->fetchSpreadSheets();
             
-            $this->language->load('feed/sheetsync');
+            $this->language->load('feed/syncsheets');
 
             $this->document->setTitle($this->language->get('heading_title'));
 
@@ -326,14 +278,14 @@ class ControllerFeedSheetsync extends Controller {
 
             $this->data['breadcrumbs'][] = array(
             'text'      => $this->language->get('heading_title'),
-            'href'      => $this->url->link('feed/sheetsync', 'token=' . $this->session->data['token'], 'SSL'),
+            'href'      => $this->url->link('feed/syncsheets', 'token=' . $this->session->data['token'], 'SSL'),
             'separator' => ' :: '
             );
 
-            $this->data['action'] = $this->url->link('feed/sheetsync', 'token=' . $this->session->data['token'], 'SSL');
+            $this->data['action'] = $this->url->link('feed/syncsheets', 'token=' . $this->session->data['token'], 'SSL');
             $this->data['cancel'] = $this->url->link('extension/feed', 'token=' . $this->session->data['token'], 'SSL');
 
-            $this->template = 'feed/sheetsync_settings.tpl';
+            $this->template = 'feed/syncsheets_settings.tpl';
             $this->children = array(
                     'common/header',
                     'common/footer'
@@ -345,27 +297,62 @@ class ControllerFeedSheetsync extends Controller {
         }
         
         public function setting(){
-            $this->load->model('feed/sheetsync');
+            $this->load->model('feed/syncsheets');
 //            print_r($this->request->post); exit;
             $this->data['edit'] = false;
-            if(isset($this->request->post['id'])){
-                $settings = $this->request->post;
-                
-//                print_r(unserialize(base64_decode($settings['settings']))); exit;
-                $this->data['edit'] = true;
-                $this->data['id'] = $settings['id'];
-                $this->data['title'] = $settings['title'];
-                $this->data['settings'] = unserialize(base64_decode($settings['settings']));
+            
+            
+            if (($this->request->server['REQUEST_METHOD'] == 'POST') && $this->validate()) {
+                    $posted = $this->request->post; 
+                    $data = array(
+                        'title'         =>  $posted['title'],
+                        'settings'      =>  base64_encode(serialize($posted['data'])),
+                        'created'       =>  date('Y-m-d H:i:s')
+                    );
+                    if(isset($posted['id']))
+                        $this->model_feed_syncsheets->saveSetting($data,$posted['id']);
+                    else
+                        $this->model_feed_syncsheets->saveSetting($data);
+                    $this->session->data['success'] = $this->language->get('text_success');
+                    $this->redirect($this->url->link('feed/google_spreadsheet', 'token=' . $this->session->data['token'], 'SSL'));
             }
+            
+//            if(isset($this->request->post['id'])){
+//                $settings = $this->request->post;
+//                $this->data['edit'] = true;
+//                $this->data['id'] = $settings['id'];
+//                $this->data['title'] = $settings['title'];
+//                $this->data['settings'] = unserialize(base64_decode($settings['settings']));
+//            }
 
+            $this->data['breadcrumbs'] = array();
+
+            $this->data['breadcrumbs'][] = array(
+            'text'      => $this->language->get('text_home'),
+                    'href'      => $this->url->link('common/home', 'token=' . $this->session->data['token'], 'SSL'),
+            'separator' => false
+            );
+
+            $this->data['breadcrumbs'][] = array(
+            'text'      => $this->language->get('text_feed'),
+                    'href'      => $this->url->link('extension/feed', 'token=' . $this->session->data['token'], 'SSL'),
+            'separator' => ' :: '
+            );
+
+            $this->data['breadcrumbs'][] = array(
+            'text'      => $this->language->get('heading_title'),
+            'href'      => $this->url->link('feed/syncsheets', 'token=' . $this->session->data['token'], 'SSL'),
+            'separator' => ' :: '
+            );
+            
             $this->load->model('tool/image');
             $this->document->addScript('view/javascript/jquery/jquery.deserialize.js');
-            $this->data['product_fields'] = $this->model_feed_sheetsync->getFieldSets('product');
+            $this->data['product_fields'] = $this->model_feed_syncsheets->getFieldSets('product');
             
             $this->load->model('sale/customer_group');
-            $this->data['customer_groups'] = $this->model_feed_sheetsync->getCustomerGroup();
-            $this->data['max_discount'] = $this->model_feed_sheetsync->getMaxDiscount();    
-            $this->data['max_special'] = $this->model_feed_sheetsync->getMaxSpecial();    
+            $this->data['customer_groups'] = $this->model_feed_syncsheets->getCustomerGroup();
+            $this->data['max_discount'] = $this->model_feed_syncsheets->getMaxDiscount();    
+            $this->data['max_special'] = $this->model_feed_syncsheets->getMaxSpecial();    
 //            echo $this->data['max_discount']; exit;
             $this->load->model('catalog/attribute');
             $this->data['attributes'] = $this->model_catalog_attribute->getAttributes();
@@ -393,7 +380,7 @@ class ControllerFeedSheetsync extends Controller {
                 }
             }
             
-            $this->language->load('feed/sheetsync');
+                $this->language->load('feed/syncsheets');
 
 		$this->document->setTitle($this->language->get('heading_title'));
 		
@@ -422,14 +409,15 @@ class ControllerFeedSheetsync extends Controller {
 			$this->data['error_warning'] = '';
 		}
 		
+                $this->data['action'] = $this->url->link('feed/syncsheets/setting', 'token=' . $this->session->data['token'], 'SSL');
   		
                 $languages = $this->db->query("SELECT * FROM `" . DB_PREFIX . "language` ORDER BY `language_id`");
                 $this->data['default_langaue'] = $this->config->get('config_language');
                 $this->data['languages'] = $languages; 
                 if(!defined('GSS'))
-                    $this->template = 'feed/sheetsync_fields.tpl';
+                    $this->template = 'feed/syncsheets_fields_g.tpl';
                 else
-                    $this->template = 'feed/sheetsync_fields.tpl';
+                    $this->template = 'feed/syncsheets_fields.tpl';
                 if(!defined('GSS')){
                     $this->children = array(
                             'common/header',
@@ -440,108 +428,63 @@ class ControllerFeedSheetsync extends Controller {
                 
         }
         
-        
         protected function validate() {
-		if (!$this->user->hasPermission('modify', 'feed/sheetsync')) {
-			$this->error['warning'] = $this->language->get('error_permission');
-		}
+            if (!$this->user->hasPermission('modify', 'feed/syncsheets')) {
+                    $this->error['warning'] = $this->language->get('error_permission');
+            }
 
-		if (!$this->error) {
-			return true;
-		} else {
-			return false;
-		}	
+            if (!$this->error) {
+                    return true;
+            } else {
+                    return false;
+            }	
 	}	
         
         
         public function ajax(){
             $action = $this->request->post['action'];
             switch($action){
-       
-                 case 'editSheet':
-                     $this->load->model('feed/sheetsync');
+                case 'editSheet':
+                     $this->load->model('feed/syncsheets');
                     if($this->request->post['title'] && $this->request->post['key']){
-                        $this->model_feed_sheetsync->editSpreadSheet(array(
+                        $this->model_feed_syncsheets->editSpreadSheet(array(
                             'title'=>       $this->request->post['title'],
                             'key'  =>       $this->request->post['key'],
                             'setting_id' => 0,
                             'id'         => $this->request->post['id']
                         ));
-                        die(json_encode(array('status'=>true,'sheets'=>$this->model_feed_sheetsync->fetchSpreadSheets())));
+                        die(json_encode(array('status'=>true,'sheets'=>$this->model_feed_syncsheets->fetchSpreadSheets())));
                     }
                     break;
                  case 'delSheet':
-                     $this->load->model('feed/sheetsync');
-                     $this->model_feed_sheetsync->deleteSpreadSheet($this->request->post['id']);
+                     $this->load->model('feed/syncsheets');
+                     $this->model_feed_syncsheets->deleteSpreadSheet($this->request->post['id']);
                      break;
                  case 'getSheet':
-                     $this->load->model('feed/sheetsync');
-                     $sheet = $this->model_feed_sheetsync->fetchSpreadsheet($this->request->post['id']);
+                     $this->load->model('feed/syncsheets');
+                     $sheet = $this->model_feed_syncsheets->fetchSpreadsheet($this->request->post['id']);
                      die(json_encode(array('status'=>true,'sheet'=>$sheet)));
                      break;
-                 case "buildToken":
-                            $this->load->model('setting/setting');
-                            $post = $this->request->post;
-                            set_include_path(DIR_SYSTEM . 'library' );
-                            require_once 'Google/Client.php';
-                            require_once 'Google/Service/Urlshortener.php';
-                            $client = new Google_Client();
-                            $client->setClientId($post['client_id']);
-                            $client->setClientSecret($post['client_secret']);
-                            $client->setRedirectUri($post['redirect_uri']);
-                            $client->addScope("https://www.googleapis.com/auth/drive");
-                            $client->setAccessType('offline');
-                            $client->setApprovalPrompt('force');
-                            unset($post['action']);
-                            $this->model_setting_setting->editSetting('sheetsync',$post);
-                            die(json_encode(array('url'=>$client->createAuthUrl())));
-                        break;
-                    case 'addTemplate':
-                            $this->load->model('setting/setting');
-                            $this->load->model('feed/sheetsync');
-                            set_include_path(DIR_SYSTEM . 'library' );
-                            require_once 'Google/Client.php';
-                            require_once 'Google/Http/MediaFileUpload.php';
-                            require_once 'Google/Service/Drive.php';
-                           
-                            $settings = $this->model_setting_setting->getSetting('sheetsync');
-//                            print_r($settings); exit;
-                            $client = new Google_Client();
-                            $client->setClientId($settings['client_id']);
-                            $client->setClientSecret($settings['client_secret']);
-                            $client->setRedirectUri($settings['redirect_uri']);
-                            $client->addScope("https://www.googleapis.com/auth/drive");
-                            $client->setAccessToken(base64_decode($settings['accesstoken']));
-                            
-                            if ($client->isAccessTokenExpired() && isset($settings['refresh_token']) && !(empty($settings['refresh_token']))) {
-                                
-                                try{
-                                 $client->refreshToken($settings['refresh_token']);
-                                }catch(Exception $e){
-                                    die(array('error'=>$e->message));
-                                }
-                            }
-                            $service = new Google_Service_Drive($client);
-                            $template_key = $this->model_feed_sheetsync->call('getTemplateGet');
-                            $template_key = $template_key->_k;
-                            if(empty($template_key))
-                                die(json_encode(array('error'=>'Template not found')));
-                            $result = $this->copyFile($service,$template_key,$this->request->post['title']);
-                            
-                            $this->load->model('feed/sheetsync');
-                            $this->model_feed_sheetsync->addSpreadSheet(array(
-                                'title'=>$this->request->post['title'],
-                                'key'  =>$result->id,
-                                'setting_id' =>0,
+                 case 'createsheet':
+                     if(isset($this->request->post['title']) && $this->request->post['title']){
+                         $this->load->model('feed/syncsheets');
+                         $response = $this->model_feed_syncsheets->call('createsheet',array('title'=>$this->request->post['title']));
+                         if($response->status){
+                           $this->model_feed_syncsheets->addSpreadSheet(array(
+                                'title'=>   $this->request->post['title'],
+                                'key'  =>   $response->key,
+                                'setting_id' => 0,
                                 'status'    => 1
                             ));
-                            die(json_encode(array('status'=>true,'result'=>$result)));
-                            
-                        break;
-                        
+                            die(json_encode(array('status'=>true,'result'=>$response)));
+                         }else{
+                            die(json_encode(array('error'=>'Unable to create new sheet, Some error occurred')));
+                         }
+                     }
+                     break;
                  case 'version_check':
-                     $this->load->model('feed/sheetsync');
-                     $response = $this->model_feed_sheetsync->call('version_check');
+                     $this->load->model('feed/syncsheets');
+                     $response = $this->model_feed_syncsheets->call('version_check');
                      
                      if(version_compare($response->Version->version_no, GSS_VERSION) === 1){
                          die(json_encode(array('new'=>true,'msg'=>"A new version {".$response->Version->title." v." . $response->Version->version_no . '} is now available','version'=>$response->Version)));
@@ -550,29 +493,21 @@ class ControllerFeedSheetsync extends Controller {
                      }
                      break;
                  case 'update_version':
-                     $this->load->model('feed/sheetsync');
-                     $response = $this->model_feed_sheetsync->call('version_check');
+                     $this->load->model('feed/syncsheets');
+                     $response = $this->model_feed_syncsheets->call('version_check');
                      
                      if(version_compare($response->Version->version_no, GSS_VERSION) === 1){
                          $this->updateCode($response->Version->github_link);
                      }
-                     
                      break;
+                 case 'signup':
+                      $this->load->model('feed/syncsheets');
+                      $response = $this->model_feed_syncsheets->call('signup',$this->request->post);
+                      die(json_encode($response));
+                      break;
             }
         }
 
-
-        private function copyFile($service, $originFileId, $copyTitle) {
-              $file = new Google_Service_Drive_DriveFile();
-              $file->setTitle($copyTitle);
-              try {
-                return $service->files->copy($originFileId, $file);
-              } catch (Exception $e) {
-                print "An error occurred: " . $e->getMessage();
-              }
-              return NULL;
-        }
-        
         public function updateCode($link){
             $json = array();
             $cache_file = DIR_CACHE .'gssuploads.zip';
@@ -584,6 +519,7 @@ class ControllerFeedSheetsync extends Controller {
                     for($i = 0; $i < $zip->numFiles; $i++) {
                          $filename = $zip->getNameIndex($i);
                          $fileinfo = pathinfo($filename);
+                         $zip_root_folder='';
                          if($fileinfo['dirname'] == '.'){
                              $zip_root_folder = $filename;
                          }else{
@@ -609,5 +545,6 @@ class ControllerFeedSheetsync extends Controller {
             die(json_encode($json));
         }
 
+        
 }
 ?>

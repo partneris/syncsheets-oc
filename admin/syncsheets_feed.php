@@ -114,7 +114,7 @@ $controller = new Front($registry);
 //action
 
 
-$action = new Action('feed/sheetsync/feeds');
+$action = new Action('feed/syncsheets/feeds');
 $controller->dispatch($action, new Action('error/not_found'));
 $response->output();
 ?>

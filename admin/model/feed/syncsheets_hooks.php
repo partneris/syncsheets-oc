@@ -18,9 +18,6 @@ $hooks[] = array(
         return $product->getProductStore();
     },
     'add'   => function($key,$value,$product){
-//        $config_name = $product->config->get('config_name');
-//        $stores = explode(',',$value);
-        
         return $product->product['product_store'][0] = 0;
     }
 );
@@ -184,15 +181,20 @@ $hooks[] = array(
         $regex = "/\{(.*?)\}/";
         preg_match($regex, $header, $match);
         parse_str($match[1],$parsed_header);
-        if(isset($parsed_header['group']))
+        if(isset($parsed_header['group'])){
             $group = $product->getCustomerGroupByName($parsed_header['group']);
             $parsed_header['customer_group_id'] = $group['customer_group_id'];
-        $product->default_discount = $parsed_header;
+            $product->default_discount = $parsed_header;
+        }
+    },
+    'get'=>function($product,$field){
+    if(isset($product->product['discount']))      
+        return $product->product['discount'];
     },
     'add' => function($key,$value,$product){
         $value = str_replace("'","\"", $value);
         $dicounts = json_decode($value);
-        if($dicounts){
+        if(is_array($dicounts)){
             $product->product['product_discount'] = array();
             foreach($dicounts as $item){
                 $product->product['product_discount'][] = (array)$item;
@@ -208,19 +210,20 @@ $hooks[] = array(
         $regex = "/\{(.*?)\}/";
         preg_match($regex, $header, $match);
         parse_str($match[1],$parsed_header);
-        if(isset($parsed_header['group']))
+        if(isset($parsed_header['group'])){
             $group = $product->getCustomerGroupByName($parsed_header['group']);
             $parsed_header['customer_group_id'] = $group['customer_group_id'];
-        $product->default_special = $parsed_header;
+            $product->default_special = $parsed_header;
+        }
     },
     'get'=>function($product,$field){
-       
+    if(isset($product->product['special']))      
         return $product->product['special'];
     },
     'add' => function($key,$value,$product){
         $value = str_replace("'","\"", $value);
         $special = json_decode($value);
-        if($special){
+        if(is_array($special)){
             $product->product['product_special'] = array();
             foreach($special as $item){
                 $product->product['product_special'][] = (array)$item;
@@ -232,12 +235,17 @@ $hooks[] = array(
 $hooks[] = array(
     'type'  => 'regex',
     'match' => '/^option.*/',
+    'get'   => function($product,$field){
+        return $product->product['options'];
+    },
     'add' => function($key,$value,$product){
         $value = str_replace("'","\"", $value);
         $options = json_decode($value);
-        if($options)
-        foreach($options as $item){
-            $product->product['product_option'][] = (array)$item;
+        if($options){
+            $product->product['product_option']=array();
+            foreach($options as $item){
+                $product->product['product_option'][] = (array)$item;
+            }
         }
     }
 );

@@ -5,7 +5,7 @@
  * and open the template in the editor.
  */
 
-class ModelFeedSheetsync extends Model {
+class ModelFeedSyncsheets extends Model {
 
    private $api = "http://api.syncsheets.com/api/v1/";
 //    private $api = "http://localhost/spreadserver/v1/";
@@ -163,7 +163,7 @@ class ModelFeedSheetsync extends Model {
     }
     
     public function applyFilters(){
-        require_once('sheetsync_hooks.php');
+        require_once('syncsheets_hooks.php');
         $matches = array();
         
         foreach($this->headers as $field){
@@ -190,6 +190,7 @@ class ModelFeedSheetsync extends Model {
 
     public function get(){
         $this->productMap=array();
+        
         foreach ($this->headers as $key=>$field){
             if(empty($field)){
                 $this->productMap[$key] = (isset($this->product[$key]))?$this->product[$key]:'';
@@ -249,13 +250,10 @@ class ModelFeedSheetsync extends Model {
     
     public function fetchProducts($start, $limit, $filter_category='') {
         $sql = "SELECT p.product_id FROM " . DB_PREFIX . "product p ";
-        if ($filter_category)
-            $sql .= " LEFT JOIN " . DB_PREFIX . "product_to_category p2c ON (p.product_id=p2c.product_id) ";
-
+        
         $sql .= " LEFT JOIN " . DB_PREFIX . "product_description pd on (p.product_id=pd.product_id) where 1 ";
 
-        if ($filter_category)
-            $sql .= " AND p2c.category_id IN (" . implode(",", $filter_category) . ") ";
+//        $sql .= " AND pd.language_id = '" . (int)$this->config->get('config_language_id') . "' "; 
 
         $sql .= "GROUP BY p.product_id limit $start, $limit";
 
@@ -332,7 +330,7 @@ class ModelFeedSheetsync extends Model {
                         'subtract' => $product_option_value['subtract'],
                         'price' => $product_option_value['price_prefix'] . $product_option_value['price'],
                         'weight' => $product_option_value['weight'],
-                        'points' => $product_option_value['points_prefix'] . $product_option_value['points']
+                        'points' => ""
                     );
                 }
             } else {
@@ -346,7 +344,7 @@ class ModelFeedSheetsync extends Model {
                     'subtract' => "",
                     'price' => "",
                     'weight' => (isset($product_option['weight'])) ? $product_option['weight'] : '',
-                    'points' => $product_option['points_prefix'].$product_option['points']
+                    'points' => ""
                 );
             }
         }
@@ -513,7 +511,7 @@ class ModelFeedSheetsync extends Model {
 //            print_r($this->productfeed); exit;
             foreach ($this->productfeed as $i => $product) {
                 $this->_bind($product);
-                if(!is_numeric($product->product_id)) {
+                if(!is_numeric($product->product_id) && $product->product_id!='') {
                     $this->_merge();
                     $new_product_id = $this->addProduct($this->product,$this->languages);
                     $added++;
@@ -529,7 +527,6 @@ class ModelFeedSheetsync extends Model {
                 }
                 $this->collection[] = $this->product;
             }
-            $this->_setOptions();
             $this->repairCategories();
             $this->cache->delete('*');
             die(json_encode($this->response));
@@ -712,8 +709,6 @@ class ModelFeedSheetsync extends Model {
         return $lenghts;
     }
     
-    
-
     public function getFieldSets() {
         $categories = array(''=>'None');
         $cats = $this->getPaths();
@@ -1103,7 +1098,7 @@ class ModelFeedSheetsync extends Model {
         $fields = unserialize(base64_decode($settings));
         $languages = $this->getLanguagesByCode();
        
-        $headers = array();
+        $headers = array(); 
         $headers['product_id'] = '{"field":"product_id"}';
         foreach ($fields['general']['required'] as $items) {
             foreach ($fields['general']['defaults'] as $key => $value) {
@@ -1128,7 +1123,8 @@ class ModelFeedSheetsync extends Model {
             }
         }
 
-        if(isset($fields['attribute']['enable'])) {
+
+        if(isset($fields['attribute']['required'])){
             foreach($fields['attribute']['required'] as $item) {
                 foreach($fields['attribute']['default'] as $key => $value) {
                     $language = $languages[$key];
@@ -1137,6 +1133,7 @@ class ModelFeedSheetsync extends Model {
                 }
             }
         }
+
         
         if(isset($fields['option']['enable'])) {
             $headers['options'] = '{"field":"options"}';
@@ -1206,8 +1203,6 @@ class ModelFeedSheetsync extends Model {
         }
     }
     
-    
-
     public function addSpreadSheet($data) { if(!isset($data['status'])) $data['status']=1;
         $this->db->query("insert into " . DB_PREFIX . "gs_spreadsheets set `title` = '" . $this->db->escape($data['title']) . "' ,`key` = '" . $this->db->escape($data['key']) . "', `status` = '" . $this->db->escape($data['status']) . "', `setting_id` = '" . $this->db->escape($data['setting_id']) . "', `created` = NOW(),`updated`=NOW()");
         $sheet_id = $this->db->getLastId();
@@ -1319,10 +1314,6 @@ class ModelFeedSheetsync extends Model {
         return $query->rows;
     }
 
-    
-
-    
-
     public function getProductOptionDesc($product_id, $option_id, $option_value_id) {
         $query = $this->db->query("SELECT l.code,description FROM `" . DB_PREFIX . "product_option_value_description` ovd LEFT JOIN `" . DB_PREFIX . "language` l ON (ovd.language_id=l.language_id) WHERE `product_id` ='" . $product_id . "' AND option_id='" . $option_id . "' AND option_value_id = '" . $option_value_id . "'");
         if ($query->num_rows) {
@@ -1425,11 +1416,12 @@ class ModelFeedSheetsync extends Model {
                 if($cv){
                     $queries[] = $sql = 'INSERT INTO ' . DB_PREFIX . 'category_description SET category_id="' . $category_id . '", language_id = ' . (int) $this->config->get('config_language_id') . ', name="' . $this->db->escape($cv) . '"';
                     $this->db->query($sql);
-                    $queries[] = $sql = "INSERT INTO " . DB_PREFIX . "category_to_store SET category_id = '" . (int) $category_id . "', store_id = '" . 1 . "'";
+                    $queries[] = $sql = "INSERT INTO " . DB_PREFIX . "category_to_store SET category_id = '" . (int) $category_id . "', store_id = '" . 0 . "'";
+                    $this->db->query($sql);
                 }else{
                     return false;
                 }
-                $this->db->query($sql);
+                
             } else {
                 $category_id = $sel->row['category_id'];
             }
@@ -1476,19 +1468,24 @@ class ModelFeedSheetsync extends Model {
             return $query->rows;
     }
 
-    public function fetchLanguageCategory($language_code){
-        $this->load->model('feed/google_spreadsheet');
-        $languages = $this->model_feed_google_spreadsheet->getLanguages();
+    public function fetchLanguageCategory(){
+        
+        $languages = $this->getLanguagesByCode();
         $cats = array();
         foreach($languages as $language){
-            $sql = "SELECT cp.category_id AS category_id, GROUP_CONCAT(cd1.name ORDER BY cp.level SEPARATOR ' > ') AS name, c.parent_id, c.sort_order FROM " . DB_PREFIX . "category_path cp LEFT JOIN " . DB_PREFIX . "category c ON (cp.path_id = c.category_id) LEFT JOIN " . DB_PREFIX . "category_description cd1 ON (c.category_id = cd1.category_id) LEFT JOIN " . DB_PREFIX . "category_description cd2 ON (cp.category_id = cd2.category_id) LEFT JOIN ".DB_PREFIX."language l ON (cd1.language_id=l.language_id) WHERE cd1.language_id = '" .$language['language_id']. "' AND cd2.language_id = '" .$language['language_id']. "'";
-            $sql .= " GROUP BY cp.category_id ORDER BY name";
+            $sql = "SELECT cp.category_id AS category_id, c.image, c.top,c.sort_order,c.status, cd2.name,cd2.description,cd2.meta_description,cd2.meta_keyword, GROUP_CONCAT(cd1.name ORDER BY cp.level SEPARATOR ' > ') AS path, c.parent_id, c.sort_order FROM " . DB_PREFIX . "category_path cp LEFT JOIN " . DB_PREFIX . "category c ON (cp.path_id = c.category_id) LEFT JOIN " . DB_PREFIX . "category_description cd1 ON (c.category_id = cd1.category_id) LEFT JOIN " . DB_PREFIX . "category_description cd2 ON (cp.category_id = cd2.category_id) LEFT JOIN ".DB_PREFIX."language l ON (cd1.language_id=l.language_id) WHERE cd1.language_id = '" .$language['language_id']. "' AND cd2.language_id = '" .$language['language_id']. "'";
+            $sql .= " GROUP BY cp.category_id ORDER BY path";
             $query = $this->db->query($sql);
             if ($query->num_rows)
                 $cats[$language['code']] = $query->rows;
          }
          return $cats;
     }
+    
+    public function getCategoryKeyword($category_id) {
+        $query = $this->db->query("SELECT keyword as seo_keyword FROM " . DB_PREFIX . "url_alias WHERE query = 'category_id=" . (int)$category_id . "'");
+        return $query->row['keyword'];
+    } 
     
     public function addProduct($data) {
         
@@ -1715,8 +1712,6 @@ class ModelFeedSheetsync extends Model {
         }
 
         foreach ($options as $option) {
-//                $this->db->query("delete from " . DB_PREFIX . "product_option where product_id='".$option->productid."'");
-//                $this->db->query("delete from " . DB_PREFIX . "product_option_value where product_id='".$option->productid."'");
             $queries[] = "delete from " . DB_PREFIX . "product_option where product_id='" . $option->productid . "'";
             $queries[] = "delete from " . DB_PREFIX . "product_option_value where product_id='" . $option->productid . "'";
         }
@@ -1730,19 +1725,15 @@ class ModelFeedSheetsync extends Model {
                 if ($id = $this->checkExistingProductOption($product_id, $option_id)) {
                     $product_option_id = $id;
                 } else {
-//                        $this->db->query("insert into " . DB_PREFIX . "product_option  (product_id,option_id,required) value('".$product_id."','".$option_id."','1')");
                     $query[] = "insert into " . DB_PREFIX . "product_option  (product_id,option_id,required) value('" . $product_id . "','" . $option_id . "','1')";
                     $product_option_id = $this->db->getLastId();
                 }
-//                        $this->db->query("insert into " . DB_PREFIX . "product_option_value SET product_option_id='".$product_option_id."', product_id='".$product_id."', option_id='".$option_id."', option_value_id='".$option_value_id."'");
                 $queries[] = "insert into " . DB_PREFIX . "product_option_value SET product_option_id='" . $product_option_id . "', product_id='" . $product_id . "', option_id='" . $option_id . "', option_value_id='" . $option_value_id . "'";
                 $product_option_value_id = $this->db->getLastId();
             }
 
             $option_data[$option->productid] = $option;
         }
-
-//            print_r($option_data); exit;
     }
 
     public function getOptionIdByName($option) {
@@ -1802,7 +1793,7 @@ class ModelFeedSheetsync extends Model {
         $option_types = array('select', 'radio', 'checkbox', 'image', 'text', 'textarea', 'file', 'date', 'time', 'datetime');
 
         $option->required = ($option->required == 'Yes' || $option->required == 'yes' || $option->required == 'Y' || $option->required == 1) ? 1 : 0;
-        $option->subtract_stock = ($option->subtract_stock == 'Yes' || $option->subtract_stock == 1) ? 1 : 0;
+        $option->subtract = ($option->subtract == 'Yes' || $option->subtract == 1) ? 1 : 0;
         $is_new = false;
         $data = array();
         
@@ -1892,7 +1883,7 @@ class ModelFeedSheetsync extends Model {
                 'option_id' => $option_id,
                 'option_value_id' => $option_value_id,
                 'quantity' => $option->quantity,
-                'subtract' => $option->subtract_stock,
+                'subtract' => $option->subtract,
                 'price' => abs($option->price),
                 'price_prefix' => ($option->price < 0 ? '-' : '+'),
                 'points' => abs($option->point),
@@ -1929,17 +1920,175 @@ class ModelFeedSheetsync extends Model {
     }
     
     public function getImportRowsCount($setting_id,$sheet_id){
-            $this->load->model('feed/google_spreadsheet');
-            $result = $this->model_feed_google_spreadsheet->call(
-                    array(
-                        'action'=>'listfeed',
-                        'setting_id' => $setting_id, 
-                        'sheet_id' => $sheet_id,
-                        'wskey'=>'General',
-                        'query'=>'rowid != ""',
-                        'count'=>true)
-                    );
+        $this->load->model('feed/google_spreadsheet');
+        $result = $this->model_feed_google_spreadsheet->call(
+                array(
+                    'action'=>'listfeed',
+                    'setting_id' => $setting_id, 
+                    'sheet_id' => $sheet_id,
+                    'wskey'=>'General',
+                    'query'=>'rowid != ""',
+                    'count'=>true)
+                );
     }
+    
+    public function prepareCategory($data){
+        $category = array();
+        $category['category_store'][0] = 0;
+        $languages = $this->getLanguagesByCode();
+        foreach($data as $key=>$value){
+            switch ($key){
+                case (preg_match('/^name.*/', $key) ? true : false):
+                    $name_arr = explode('_', $key);
+                    $language = end($name_arr);
+                    $language_id = isset($languages[$language]['language_id']) ? $languages[$language]['language_id'] : '0';
+                    $category['category_description'][$language_id]['name'] = $value;
+                    break;
+                case (preg_match('/^description.*/', $key) ? true : false) :
+                    $desc_arr = explode('_', $key);
+                    $language = end($desc_arr);
+                    $language_id = isset($languages[$language]['language_id']) ? $languages[$language]['language_id'] : '0';
+                    $category['category_description'][$language_id]['description'] = $value;
+                    break;
+                case (preg_match('/^meta_key.*/', $key) ? true : false) :
+                    $meta_text = explode('_', $key);
+                    $language = end($meta_text);
+                    $language_id = isset($languages[$language]['language_id']) ? $languages[$language]['language_id'] : '0';
+                    $category['category_description'][$language_id]['meta_keyword'] = $value;
+                    break;
+                case (preg_match('/^meta_desc.*/', $key) ? true : false) :
+                    $meta_text = explode('_', $key);
+                    $language = end($meta_text);
+                    $language_id = isset($languages[$language]['language_id']) ? $languages[$language]['language_id'] : '0';
+                    $category['category_description'][$language_id]['meta_description'] = $value;
+                    break;
+                case (preg_match('/^seo.*/', $key) ? true : false) :
+                    $category['keyword'] = $value;
+                    break;
+                case (preg_match('/^path.*/', $key) ? true : false) :
+                    $path = explode(' > ', $value);
+                    if(count($path) > 1){
+                        end($path);
+                        $category['parent_id'] = $this->findCategoryName(prev($path));
+                    }else $category['parent_id']= 0;
+                    $category['path'] = htmlentities($value);
+                    break;
+                case (preg_match('/^level.*/', $key) ? true : false) :
+                    break;
+                default:
+                    $category[$key] = $value;
+            }
+        }
+        return $category;
+    }
+    
+    public function findCategoryName($name){
+        $query = $this->db->query("select category_id from " . DB_PREFIX . "category_description where name like '{$name}'");
+        if($query->num_rows){
+            return $query->row['category_id'];
+        }
+        return 0;
+    }
+    
+    public function addCategory($data) {
+       
+        $this->writeLog(print_r($data,true),'cat');
+       
+        $sql = "INSERT INTO " . DB_PREFIX . "category SET parent_id = '" . (int)$data['parent_id'] . "',";
+        if(isset($data['top'])){ $sql .= "`top` = '" . (isset($data['top']) ? (int)$data['top'] : 0) . "', ";}
+        if(isset($data['column'])){$sql .= "`column` = '" . (int)$data['column'] . "', ";}
+        if(isset($data['sort_order'])){$sql .= "sort_order = '" . (int)$data['sort_order'] . "', ";}
+        if(isset($data['status'])){$sql .= "status = '" . (int)$data['status'] . "', ";}
+        
+            $sql .= "date_modified = NOW(), "; 
+            $sql .= "date_added = NOW()";
+            $this->db->query($sql);
+            $this->writeLog($sql,'catsql');
+            $category_id = $this->db->getLastId();
+
+            if (isset($data['image'])) {
+                    $this->db->query("UPDATE " . DB_PREFIX . "category SET image = '" . $this->db->escape(html_entity_decode($data['image'], ENT_QUOTES, 'UTF-8')) . "' WHERE category_id = '" . (int)$category_id . "'");
+            }
+            $sql = '';
+            foreach ($data['category_description'] as $language_id => $value) {
+                $sql = "INSERT INTO " . DB_PREFIX . "category_description SET category_id = '" . (int)$category_id . "', language_id = '" . (int)$language_id . "', ";
+                        if(isset($value['name'])) $sql .= "name = '" . $this->db->escape($value['name']) . "', ";
+                        if(isset($value['meta_keyword'])) $sql .= "meta_keyword = '" . $this->db->escape($value['meta_keyword']) . "',";
+                        if(isset($value['meta_description'])) $sql .= "meta_description = '" . $this->db->escape($value['meta_description']) . "', ";
+                        if(isset($value['description'])) $sql .= "description = '" . $this->db->escape($value['description']) . "'";
+                $this->db->query($sql);
+                $this->writeLog($sql,'catsql');
+            }
+		
+            if (isset($data['category_store'])) {
+                    foreach ($data['category_store'] as $store_id) {
+                            $this->db->query("INSERT INTO " . DB_PREFIX . "category_to_store SET category_id = '" . (int)$category_id . "', store_id = '" . (int)$store_id . "'");
+                    }
+            }
+
+
+            if (isset($data['keyword']) && $data['keyword']){
+                    $this->db->query("INSERT INTO " . DB_PREFIX . "url_alias SET query = 'category_id=" . (int)$category_id . "', keyword = '" . $this->db->escape($data['keyword']) . "'");
+            }
+		
+            $this->cache->delete('category');
+            return $category_id;
+	}
+        
+    public function editCategory($category_id, $data) {
+        $this->writeLog(print_r($data,true),'cat');
+		$sql = "UPDATE " . DB_PREFIX . "category SET parent_id = '" . (int)$data['parent_id'] . "',";
+                if(isset($data['top'])){ $sql .= "`top` = '" . (isset($data['top']) ? (int)$data['top'] : 0) . "', ";}
+                if(isset($data['column'])){$sql .= "`column` = '" . (int)$data['column'] . "', ";}
+                if(isset($data['sort_order'])){$sql .= "sort_order = '" . (int)$data['sort_order'] . "', ";}
+                if(isset($data['status'])){$sql .= "status = '" . (int)$data['status'] . "', ";}
+
+                    $sql .= "date_modified = NOW() where category_id='{$category_id}'"; 
+                    $this->db->query($sql);
+           $this->writeLog($sql,'catsql');
+		if (isset($data['image'])) {
+			$this->db->query("UPDATE " . DB_PREFIX . "category SET image = '" . $this->db->escape(html_entity_decode($data['image'], ENT_QUOTES, 'UTF-8')) . "' WHERE category_id = '" . (int)$category_id . "'");
+		}
+
+		$this->db->query("DELETE FROM " . DB_PREFIX . "category_description WHERE category_id = '" . (int)$category_id . "'");
+
+		foreach ($data['category_description'] as $language_id => $value) {
+			$sql = "INSERT INTO " . DB_PREFIX . "category_description SET category_id = '" . (int)$category_id . "', language_id = '" . (int)$language_id . "', ";
+                        if(isset($value['name'])) $sql .= "name = '" . $this->db->escape($value['name']) . "', ";
+                        if(isset($value['meta_keyword'])) $sql .= "meta_keyword = '" . $this->db->escape($value['meta_keyword']) . "',";
+                        if(isset($value['meta_description'])) $sql .= "meta_description = '" . $this->db->escape($value['meta_description']) . "', ";
+                        if(isset($value['description'])) $sql .= "description = '" . $this->db->escape($value['description']) . "'";
+                        $this->db->query($sql);
+		}
+		
+		
+		$this->db->query("DELETE FROM " . DB_PREFIX . "category_to_store WHERE category_id = '" . (int)$category_id . "'");
+		
+		if (isset($data['category_store'])) {		
+			foreach ($data['category_store'] as $store_id) {
+				$this->db->query("INSERT INTO " . DB_PREFIX . "category_to_store SET category_id = '" . (int)$category_id . "', store_id = '" . (int)$store_id . "'");
+			}
+		}
+		
+		
+		if (isset($data['keyword']) && $data['keyword']){
+                    $this->db->query("DELETE FROM " . DB_PREFIX . "url_alias WHERE query = 'category_id=" . (int)$category_id. "'");
+                    $this->db->query("INSERT INTO " . DB_PREFIX . "url_alias SET query = 'category_id=" . (int)$category_id . "', keyword = '" . $this->db->escape($data['keyword']) . "'");
+		}
+		
+		$this->cache->delete('category');
+	}
+        
+    public function saveSetting($data,$setting_id=false) {
+        if(!$setting_id){
+            $query = $this->db->query("insert into " . DB_PREFIX . "gs_settings set title = '" . $this->db->escape($data['title']) . "', settings = '" . $this->db->escape($data['settings']) . "', created = '" . $this->db->escape($data['created']) . "' ");
+            $setting_id = $this->db->getLastId();
+        }else
+            $query = $this->db->query("update " . DB_PREFIX . "gs_settings set title = '" . $this->db->escape($data['title']) . "', settings = '" . $this->db->escape($data['settings']) . "' where id='$setting_id'");
+        $data['id'] = $setting_id;
+        $this->call('saveSetting',$data);
+    }
+	
 }
 
 ?>
