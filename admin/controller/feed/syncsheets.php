@@ -1,5 +1,5 @@
 <?php 
-define('GSS_VERSION', "0.0.3");
+define('GSS_VERSION', "0.2.6");
 class ControllerFeedSyncsheets extends Controller {
 	private $error = array(); 
         public $_log = array();
@@ -244,7 +244,7 @@ class ControllerFeedSyncsheets extends Controller {
             }
             
             $this->data['sheets'] = $this->model_feed_syncsheets->fetchSpreadSheets();
-            
+            $this->data['settings'] = $this->model_feed_syncsheets->getSettings();
             $this->language->load('feed/syncsheets');
 
             $this->document->setTitle($this->language->get('heading_title'));
@@ -314,7 +314,15 @@ class ControllerFeedSyncsheets extends Controller {
                     else
                         $this->model_feed_syncsheets->saveSetting($data);
                     $this->session->data['success'] = $this->language->get('text_success');
-                    $this->redirect($this->url->link('feed/google_spreadsheet', 'token=' . $this->session->data['token'], 'SSL'));
+                    $this->redirect($this->url->link('feed/syncsheets', 'token=' . $this->session->data['token'], 'SSL'));
+            }
+            
+           if(isset($this->request->get['id'])){
+                $settings = $this->model_feed_syncsheets->getSetting($this->request->get['id']);
+                $this->data['edit'] = true;
+                $this->data['id'] = $settings['id'];
+                $this->data['title'] = $settings['title'];
+                $this->data['settings'] = unserialize(base64_decode($settings['settings']));
             }
             
 //            if(isset($this->request->post['id'])){
@@ -473,7 +481,7 @@ class ControllerFeedSyncsheets extends Controller {
                            $this->model_feed_syncsheets->addSpreadSheet(array(
                                 'title'=>   $this->request->post['title'],
                                 'key'  =>   $response->key,
-                                'setting_id' => 0,
+                                'setting_id' => $this->request->post['setting_id'],
                                 'status'    => 1
                             ));
                             die(json_encode(array('status'=>true,'result'=>$response)));
