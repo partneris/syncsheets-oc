@@ -4,7 +4,7 @@ class ControllerFeedSyncsheets extends Controller {
 	private $error = array(); 
         public $_log = array();
         
-        public function _msg($message,$type='Notice'){
+        public function msg($message,$type='Notice'){
             $this->_log[] = date('Y-m-d G:i:s') . ' - ' . $type .' : '. $message . "\n";
         }
 
@@ -15,6 +15,9 @@ class ControllerFeedSyncsheets extends Controller {
             $action = $this->request->get['action'];
             $this->load->model('feed/syncsheets');
             switch($action){
+                case 'getversion':
+                    die(json_encode(array('version'=>GSS_VERSION)));
+                    break;
                 case 'oauth2callback':
                         set_include_path(DIR_SYSTEM . 'library' );
                         require_once 'Google/Client.php';
@@ -458,7 +461,7 @@ class ControllerFeedSyncsheets extends Controller {
                         $this->model_feed_syncsheets->editSpreadSheet(array(
                             'title'=>       $this->request->post['title'],
                             'key'  =>       $this->request->post['key'],
-                            'setting_id' => 0,
+                            'setting_id' => $this->request->post['setting_id'],
                             'id'         => $this->request->post['id']
                         ));
                         die(json_encode(array('status'=>true,'sheets'=>$this->model_feed_syncsheets->fetchSpreadSheets())));

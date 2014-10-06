@@ -64,6 +64,7 @@
                             <td class="left">Sr.No.</td>
                             <td class="left">Title</td>
                             <td class="left">Sheet</td>
+                            <td class="left">Setting</td>
                             <td class="left">Last Sync</td>
                             <td class="left">Last Updated</td>
                             <td class="left">Action</td>
@@ -74,8 +75,8 @@
                             <tr>
                                 <td class="left"><?php echo $key+1; ?></td>
                                 <td class="left"><?php echo $sheet['title']; ?></td>
-                                
                                 <td class="left"><a target="_blank" href="https://docs.google.com/spreadsheets/d/<?php echo $sheet['key']; ?>/edit">Launch</a></td>
+                                <td class="left"><?php echo $sheet['setting']; ?></td>
                                 <td class="left"><?php echo $sheet['last_sync']; ?></td>
                                 <td class="left"><?php echo $sheet['updated']; ?></td>
                                 <td class="left">
@@ -134,7 +135,7 @@
 </div>
 
 <div style="display:none;" id="sheetForm">
-    <form id="addSheetform" action="">
+    <form id="editSheetform" action="">
         <table class="form" id="option-form">
             <tbody >
             <tr>
@@ -357,13 +358,13 @@ var ajax = 'index.php?route=feed/syncsheets/ajax&token=<?php echo $_GET['token']
 });    
 
     $(document).on('click','.edSheet',function(e){e.preventDefault();
-        $("#addSheetform").data('current', this).dialog({width:500,
+        $("#editSheetform").data('current', this).dialog({width:500,
             open:function(){
                 var $this = $.data(this,'current');
                 $.post(ajax,{action:'getSheet',id:$($this).attr('sid')},function(r){r=$.parseJSON(r);
-                    $("#addSheetform #sTitle").val(r.sheet.title);
-                    $("#addSheetform #sKey").val(r.sheet.key);
-                    $("#addSheetform #sSetting").val(r.sheet.setting_id);
+                    $("#editSheetform #sTitle").val(r.sheet.title);
+                    $("#editSheetform #sKey").val(r.sheet.key);
+                    $("#editSheetform #sSetting").val(r.sheet.setting_id);
                 });
             },
             beforeClose: function( event, ui ) {
@@ -373,9 +374,9 @@ var ajax = 'index.php?route=feed/syncsheets/ajax&token=<?php echo $_GET['token']
             },buttons:{
                'Edit Sheet':function(){
                    var $this = $.data(this, 'current');
-                   var title=$('#sTitle').val();
-                   var key=$('#sKey').val();
-                   var setting=$('#sSetting').val();
+                   var title=$('#editSheetform #sTitle').val();
+                   var key=$('#editSheetform #sKey').val();
+                   var setting=$('#editSheetform #sSetting').val();
                    var dia = $(this);
                    $.post(ajax,{action:'editSheet',title:title,key:key,setting_id:setting,id:$($this).attr('sid')},function(r){ r=$.parseJSON(r);
                        dia.dialog("close");

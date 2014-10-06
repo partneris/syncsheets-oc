@@ -229,7 +229,7 @@ $hooks[] = array(
                 $product->product['product_special'][] = (array)$item;
             }
         }else{
-            $product->msg("Error with product#");
+//            $product->msg("Error with product#");
         }
     }
 );
