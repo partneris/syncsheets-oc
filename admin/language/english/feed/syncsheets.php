@@ -1,6 +1,6 @@
 <?php
 // Heading
-$_['heading_title']    = 'SyncSheets';
+$_['heading_title']    = 'Ⓟ SyncSheets';
 // Text   
 $_['text_feed']        = 'Product Feeds';
 $_['text_success']     = 'Success: You have modified Google Base feed!';
