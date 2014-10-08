@@ -179,7 +179,7 @@ class ModelFeedSyncsheets extends Model {
     }
     
     public function find($field,$hooks){
-        foreach($hooks as $item){            //print_r($item); exit;
+        foreach($hooks as $item){
             if($item['type']=='normal' && $item['match']==$field){
                 return $item;
             }elseif($item['type']=='regex' && preg_match($item['match'],$field)){
@@ -1099,14 +1099,14 @@ class ModelFeedSyncsheets extends Model {
         $languages = $this->getLanguagesByCode();
        
         $headers = array(); 
-        $headers['product_id'] = '{"field":"product_id"}';
+        $headers['Product ID'] = '{"field":"product_id"}';
         foreach ($fields['general']['required'] as $items) {
             foreach ($fields['general']['defaults'] as $key => $value) {
                 $language = $languages[$key];
-                $trimmed = $items;
+                $trimmed = ucwords(str_replace('_', ' ', $items));
                 if (in_array($items, $this->multiple)) {
                     if (isset($fields['general']['defaults'][$language['code']][$items])) {
-                        $headers[$trimmed .'_'. $language['code']] = '{"field":"'.$items.'","lang":"'.$language['code'].'"}';
+                        $headers[$trimmed .' ('. $language['code'].')'] = '{"field":"'.$items.'","lang":"'.$language['code'].'"}';
                     }
                 } else {
                     $code = $this->config->get('config_language');
@@ -1127,7 +1127,7 @@ class ModelFeedSyncsheets extends Model {
                 foreach($fields['attribute']['default'] as $key => $value) {
                     $language = $languages[$key];
                     $trimmed = $this->getAttributeName($item, $key);
-                    $headers['at'.$item.':'.$language['code']] = '{"field":"attribute","id":'.$item.',"lang":"'.$language['code'].'","name":"'.$trimmed.'"}';
+                    $headers['AT-'.$trimmed.' ('.$language['code'].')'] = '{"field":"attribute","id":'.$item.',"lang":"'.$language['code'].'","name":"'.$trimmed.'"}';
                 }
             }
         
@@ -1607,7 +1607,7 @@ class ModelFeedSyncsheets extends Model {
         return $product_id;
     }
 
-    public function editProduct($product_id,$data) {
+    public function editProduct($product_id,$data) {       
         $queries = array();
         if ($data['product']) {
             $sql = 'UPDATE `' . DB_PREFIX . 'product` SET ';
@@ -1899,12 +1899,69 @@ class ModelFeedSyncsheets extends Model {
         return preg_replace('/[^A-Za-z0-9\-]/', '', $string); // Removes special chars.
     }
     
-    public function getProductStore($product_id) {
+    public function getProductStore($product_id,$id=false) {
         $query = $this->db->query("SELECT * FROM " . DB_PREFIX . "store s left join `" . DB_PREFIX . "product_to_store` p2s ON (p2s.store_id=s.store_id) where p2s.product_id='$product_id'");
         if ($query->num_rows) {
+            return ($id)?$query->row['store_id']:$query->row['name'];
+        } else { 
+            if($id) {return " 0 ";}
+            else { return $this->config->get('config_name'); }
+        }
+    }
+    
+    public function getProductWeightName($weight_id,$output){
+        $query=$this->db->query("select title,unit from ".DB_PREFIX."weight_class_description where weight_class_id='$weight_id'");
+        if($query->num_rows){
+            return $query->row[$output];
+        }
+    }
+    
+    public function getProductWeightId($name,$key){
+        $query=$this->db->query("select weight_class_id from ".DB_PREFIX."weight_class_description where {$key}='$name'");
+        if($query->num_rows){
+            return $query->row['weight_class_id'];
+        }
+    }
+    
+    public function getProductLengthName($length_id,$output){
+        $query=$this->db->query("select title,unit from ".DB_PREFIX."length_class_description where length_class_id='$length_id'");
+        if($query->num_rows){
+            return $query->row[$output];
+        }
+    }
+    
+    public function getProductLengthId($name,$key){
+        $query=$this->db->query("select length_class_id from ".DB_PREFIX."length_class_description where {$key}='$name'");
+        if($query->num_rows){
+            return $query->row['length_class_id'];
+        }
+    }
+    
+    public function getProductTaxName($tax_id){
+        $query=$this->db->query("select title from ".DB_PREFIX."tax_class where tax_class_id='$tax_id'");
+        if($query->num_rows){
+            return $query->row['title'];
+        }
+    }
+    
+    public function getProductTaxId($title){
+        $query=$this->db->query("select tax_class_id from ".DB_PREFIX."tax_class where title='$title'");
+        if($query->num_rows){
+            return $query->row['tax_class_id'];
+        }
+    }
+    
+    public function getProductStock($id){
+        $query=$this->db->query("select name from ".DB_PREFIX."stock_status where stock_status_id='$id'");
+        if($query->num_rows){
             return $query->row['name'];
-        } else {
-            return $this->config->get('config_name');
+        }
+    }
+    
+    public function getProductStockId($name){
+        $query=$this->db->query("select stock_status_id from ".DB_PREFIX."stock_status where name='$name'");
+        if($query->num_rows){
+            return $query->row['stock_status_id'];
         }
     }
     

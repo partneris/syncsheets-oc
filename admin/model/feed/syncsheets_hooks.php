@@ -5,22 +5,99 @@
  * */
 
 $hooks[] = array(
-    'type'  =>  'regular',
+    'type'  =>  'normal',
     'match' =>  'product_id',
     'add'   => function(){
         return;
     }
 );
 $hooks[] = array(
-    'type'  =>  'regular',
-    'match' =>  '/^store.*/',
+    'type'  =>  'normal',
+    'match' =>  'store',
     'get'   =>  function($product,$field){
-        return $product->getProductStore();
+        return $product->getProductStore($product->id);
     },
     'add'   => function($key,$value,$product){
-        return $product->product['product_store'][0] = 0;
+         $product->product['product_store'][0] = 0;
     }
 );
+$hooks[] = array(
+    'type'  =>  'normal',
+    'match' =>  'store_id',
+    'get'   =>  function($product,$field){
+        return $product->getProductStore($product->id,true);
+    },
+    'add'   => function($key,$value,$product){
+         $product->product['product_store'][0] = 0;
+    }
+);
+
+$hooks[] = array(
+    'type'  =>  'normal',
+    'match' =>  'weight_class_unit',
+    'get'   =>  function($product,$field){
+        return $product->getProductWeightName($product->product['weight_class_id'],'unit');
+    },
+    'add'   => function($key,$value,$product){
+         $product->product['product']['weight_class_id'] = $product->getProductWeightId($value,'unit');
+    }
+);
+
+$hooks[] = array(
+    'type'  =>  'normal',
+    'match' =>  'weight_class',
+    'get'   =>  function($product,$field){
+        return $product->getProductWeightName($product->product['weight_class_id'],'title');
+    },
+    'add'   => function($key,$value,$product){
+        $product->product['product']['weight_class_id'] = $product->getProductWeightId($value,'title');
+    }
+);
+
+$hooks[] = array(
+    'type'  =>  'normal',
+    'match' =>  'length_class_unit',
+    'get'   =>  function($product,$field){
+        return $product->getProductLengthName($product->product['length_class_id'],'unit');
+    },
+    'add'   => function($key,$value,$product){
+         $product->product['product']['length_class_id'] = $product->getProductLengthId($value,'unit');
+    }
+);
+
+$hooks[] = array(
+    'type'  =>  'normal',
+    'match' =>  'length_class',
+    'get'   =>  function($product,$field){
+        return $product->getProductLengthName($product->product['length_class_id'],'title');
+    },
+    'add'   => function($key,$value,$product){
+        $product->product['product']['length_class_id'] = $product->getProductLengthId($value,'title');
+    }
+);
+
+$hooks[] = array(
+    'type'  =>  'normal',
+    'match' =>  'tax_class',
+    'get'   =>  function($product,$field){
+        return $product->getProductTaxName($product->product['tax_class_id']);
+    },
+    'add'   => function($key,$value,$product){
+        $product->product['product']['tax_class_id'] = $product->getProductTaxId($value);
+    }
+);
+
+$hooks[] = array(
+    'type'  =>  'normal',
+    'match' =>  'stock_status',
+    'get'   =>  function($product,$field){
+        return $product->getProductStock($product->product['stock_status_id']);
+    },
+    'add'   => function($key,$value,$product){
+        $product->product['product']['stock_status_id'] = $product->getProductStockId($value);
+    }
+);
+
 $hooks[] = array(
     'type' =>  'regex',
     'match'=>  '/^category.*/',
@@ -199,6 +276,8 @@ $hooks[] = array(
             foreach($dicounts as $item){
                 $product->product['product_discount'][] = (array)$item;
             }
+        }else{
+            $product->product['product_discount'] = array();
         }
     }
 );
@@ -229,7 +308,7 @@ $hooks[] = array(
                 $product->product['product_special'][] = (array)$item;
             }
         }else{
-//            $product->msg("Error with product#");
+            $product->product['product_special'] = array();
         }
     }
 );
