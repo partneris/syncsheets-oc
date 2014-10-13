@@ -1,5 +1,5 @@
 <?php 
-define('GSS_VERSION', "0.3.1");
+define('GSS_VERSION', "0.3.2");
 class ControllerFeedSyncsheets extends Controller {
 	private $error = array(); 
         public $_log = array();
@@ -556,6 +556,10 @@ class ControllerFeedSyncsheets extends Controller {
             die(json_encode($json));
         }
 
-        
+        public function test(){
+            $query = $this->db->query("update product_description set name = 'Update thiss product' where product_id=1 and language_id=1");
+           
+            echo $this->db->countAffected();
+        }
 }
 ?>

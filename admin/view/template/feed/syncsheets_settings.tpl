@@ -38,12 +38,13 @@
   <div class="box">
     <div class="heading">
       <h1><img src="view/image/feed.png" alt="" /> <?php echo $heading_title; ?></h1>
+      <?php if(!$install): ?>
       <div class="buttons">
-      
       <a onclick="$('#form').submit();" class="button">Delete</a>
       <a href="index.php?route=feed/syncsheets/setting&token=<?php echo $_GET['token'] ?>" class="button">Add Setting</a>
       <a href="<?php echo $cancel; ?>" class="button"><?php echo $button_cancel; ?></a>
       </div>
+      <?php endif; ?>
     </div>
     <div class="content">
         

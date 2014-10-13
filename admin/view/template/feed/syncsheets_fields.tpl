@@ -35,7 +35,6 @@
                 <li><a href="#tab-discount">Discount</a></li>
                 <li><a href="#tab-special">Specials</a></li>
                 <li><a href="#tab-misc">Miscellaneous</a></li>
-                
             </ul>
         
           
