@@ -6,13 +6,6 @@
 
 $hooks[] = array(
     'type'  =>  'normal',
-    'match' =>  'product_id',
-    'add'   => function(){
-        return;
-    }
-);
-$hooks[] = array(
-    'type'  =>  'normal',
     'match' =>  'store',
     'get'   =>  function($product,$field){
         return $product->getProductStore($product->id);
@@ -153,7 +146,7 @@ $hooks[] = array(
     'type'  => 'regex',
     'match' => '/^name.*/',
     'get'   =>  function($product,$field){ 
-        return (isset($product->product[$field]) && !empty($product->product[$field])) ? html_entity_decode($product->product[$field]) : '';
+        return (isset($product->product[$field]) && !empty($product->product[$field])) ? $product->product[$field] : '';
     },
     'add'  =>  function($key,$value,$product){
         list($name, $language) = explode('_', $key);
@@ -166,7 +159,7 @@ $hooks[] = array(
     'type'  => 'regex',
     'match' => '/^tag.*/',
     'get'   =>  function($product,$field){ 
-        return (isset($product->product[$field]) && !empty($product->product[$field])) ? html_entity_decode($product->product[$field]) : '';
+        return (isset($product->product[$field]) && !empty($product->product[$field])) ? $product->product[$field] : '';
     },
     'add'  =>  function($key,$value,$product){ 
         list($name, $language) = explode('_', $key);
@@ -179,7 +172,7 @@ $hooks[] = array(
     'type'  => 'regex',
     'match' => '/^description.*/',
     'get'   =>  function($product,$field){ 
-        return (isset($product->product[$field]) && !empty($product->product[$field])) ? html_entity_decode($product->product[$field]) : '';
+        return (isset($product->product[$field]) && !empty($product->product[$field])) ? $product->product[$field] : '';
     },
     'add'  =>  function($key,$value,$product){
         list($name, $language) = explode('_', $key);
@@ -192,7 +185,7 @@ $hooks[] = array(
     'type'  => 'regex',
     'match' => '/^meta_key.*/',
     'get'   =>  function($product,$field){ 
-        return (isset($product->product[$field]) && !empty($product->product[$field])) ? html_entity_decode($product->product[$field]) : '';
+        return (isset($product->product[$field]) && !empty($product->product[$field])) ? $product->product[$field] : '';
     },
     'add'  =>  function($key,$value,$product){
         $meta_text = explode('_', $key);
@@ -206,7 +199,7 @@ $hooks[] = array(
     'type'  => 'regex',
     'match' => '/^meta_desc.*/',
     'get'   =>  function($product,$field){ 
-        return (isset($product->product[$field]) && !empty($product->product[$field])) ? html_entity_decode($product->product[$field]) : '';
+        return (isset($product->product[$field]) && !empty($product->product[$field])) ? $product->product[$field] : '';
     },
     'add'  =>  function($key,$value,$product){
         $meta_text = explode('_', $key);
@@ -220,7 +213,7 @@ $hooks[] = array(
     'type'  => 'regex',
     'match' => '/^manufacturer.*/',
     'get'   =>  function($product,$field){
-        return (isset($product->product['manufacturer']) && !empty($product->product['manufacturer'])) ? html_entity_decode($product->product['manufacturer']) : '';
+        return (isset($product->product['manufacturer']) && !empty($product->product['manufacturer'])) ? $product->product['manufacturer'] : '';
     },
     'add'  => function($key,$value,$product){
         $product->product['product']['manufacturer_id'] = $product->saveManufacurer($value);
@@ -358,7 +351,7 @@ $hooks[] = array(
     'type'  => 'regex',
     'match' => '/^seo.*/',
     'get'   =>  function($product,$field){
-        return (isset($product->product['seo_keyword']) && !empty($product->product['seo_keyword'])) ? html_entity_decode($product->product['seo_keyword']) : '';
+        return (isset($product->product['seo_keyword']) && !empty($product->product['seo_keyword'])) ? $product->product['seo_keyword'] : '';
     },
     'add'  => function($key,$value,$product){
         $product->product['product']['keyword'] = $value;

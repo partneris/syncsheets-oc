@@ -1,5 +1,5 @@
 <?php 
-define('GSS_VERSION', "0.3.2");
+define('GSS_VERSION', "0.3.3");
 class ControllerFeedSyncsheets extends Controller {
 	private $error = array(); 
         public $_log = array();
@@ -160,6 +160,7 @@ class ControllerFeedSyncsheets extends Controller {
                          ->get();
                $json[] = $_product;
             }
+//            print_r($json); exit;
             die(json_encode($json));
         }
         

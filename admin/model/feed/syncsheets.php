@@ -253,7 +253,7 @@ class ModelFeedSyncsheets extends Model {
         
         $sql .= " LEFT JOIN " . DB_PREFIX . "product_description pd on (p.product_id=pd.product_id) where 1 ";
 
-//        $sql .= " AND pd.language_id = '" . (int)$this->config->get('config_language_id') . "' "; 
+        $sql .= " AND pd.language_id = '" . (int)$this->config->get('config_language_id') . "' "; 
 
         $sql .= "GROUP BY p.product_id limit $start, $limit";
 
@@ -1644,11 +1644,12 @@ class ModelFeedSyncsheets extends Model {
             $queries[] = $sql = "DELETE FROM " . DB_PREFIX . "product_image WHERE product_id = '" . (int) $product_id . "'";
             $this->db->query($sql);
             foreach ($data['product_image'] as $product_image) {
-                $queries[] = $sql = "INSERT INTO " . DB_PREFIX . "product_image SET product_id = '" . (int) $product_id . "', image = '" . $this->db->escape(html_entity_decode($product_image['image'], ENT_QUOTES, 'UTF-8')) . "', sort_order = '" . (int) $product_image['sort_order'] . "'";
-                $this->db->query($sql);
+                if($product_image['image']){
+                    $queries[] = $sql = "INSERT INTO " . DB_PREFIX . "product_image SET product_id = '" . (int) $product_id . "', image = '" . $this->db->escape(html_entity_decode($product_image['image'], ENT_QUOTES, 'UTF-8')) . "', sort_order = '" . (int) $product_image['sort_order'] . "'";
+                    $this->db->query($sql);
+                }
             }
         }
-
 
         if (isset($data['product_category'])) {
             $queries[] = $sql = "DELETE FROM " . DB_PREFIX . "product_to_category WHERE product_id = '" . (int) $product_id . "'";
