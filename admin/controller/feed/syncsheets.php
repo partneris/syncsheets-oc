@@ -1,5 +1,5 @@
 <?php 
-define('GSS_VERSION', "0.3.3");
+define('GSS_VERSION', "0.3.5");
 class ControllerFeedSyncsheets extends Controller {
 	private $error = array(); 
         public $_log = array();
@@ -66,7 +66,6 @@ class ControllerFeedSyncsheets extends Controller {
                     break;
                case 'oc2gss':
                    $headers = $this->request->post['headers'];
-                      
                        $count = $this->request->post['count'];
                        $limit = (isset($this->request->post['limit']))?$this->request->post['limit']:500;
                        $callback = (isset($this->request->post['callback']))?$this->request->post['callback']:1;
@@ -139,6 +138,55 @@ class ControllerFeedSyncsheets extends Controller {
                     $this->model_feed_syncsheets->repairCategories();
                     die(json_encode($response));
                     break;
+                case 'getCustomers':
+                    $this->load->model('sale/customer');
+                    $query = $this->db->query("select * from ".DB_PREFIX."customer");
+                    if($query->num_rows){
+                        $headers = $this->request->post['headers'];
+                       
+                        $customers = $cust = array();
+                        foreach($query->rows as $key=>$customer){
+                            foreach($headers as $item){
+                                $customers[$key][$item] = (isset($customer[$item]))?$customer[$item]:'';
+                            }
+                            if(isset($customers[$key]['address']))
+                            $customers[$key]['address'] = json_encode($this->model_sale_customer->getAddresses($customer['customer_id']));
+//                            $customers[] = $cust;
+                        }
+                        die(json_encode(array('status'=>true,'rows'=>$customers)));
+                    }
+                    die(json_encode(array('status'=>false,'error'=>'No customer to import')));
+                    break;
+                case 'getReviews':
+                    $this->load->model('sale/customer');
+                    $query = $this->db->query("select * from ".DB_PREFIX."review");
+                    if($query->num_rows){
+                        $headers = $this->request->post['headers'];
+                        $reviews = $rev = array();
+                        foreach($query->rows as $key=>$review){
+                            foreach($headers as $item){
+                                $reviews[$key][$item] = (isset($review[$item]))?$review[$item]:'';
+                            }
+                        }
+                        die(json_encode(array('status'=>true,'rows'=>$reviews)));
+                    }
+                    die(json_encode(array('status'=>false,'error'=>'No reviews to import')));
+                    break;
+                case 'pushCustomers':
+                    $groups = $this->model_feed_syncsheets->getCustomerGroup();
+                    $return = array();$return['updated']=0;
+                    $rows = json_decode(base64_decode($this->request->post['rows']));
+                   
+                    foreach($rows as $item){ $item = (array)$item;
+                        $customer_id = $this->model_feed_syncsheets->saveCustomer($item);
+                        if($customer_id){
+                            $return['created'][$item['customer_id']] = $customer_id;
+                        }else{
+                            $return['updated'] = $return['updated'] + 1;
+                        }
+                    }
+                    die(json_encode($return));
+                    break;
             }
         }
         
@@ -209,7 +257,7 @@ class ControllerFeedSyncsheets extends Controller {
         public function index(){
             $this->load->model('feed/syncsheets');
             
-            $cats = $this->model_feed_syncsheets->getPaths();
+            $cats = $this->model_feed_syncsheets->getCatPaths();
             
             $this->data['category'] = $cats;
             
@@ -548,7 +596,7 @@ class ControllerFeedSyncsheets extends Controller {
                          }
                      }                  
                      $zip->close();                  
-                } 
+                }
                 $json['msg'] = "Congrats! Syncsheet Now updated to latest version.";
                 unlink($cache_file);
             }else{

@@ -14,6 +14,15 @@ $hooks[] = array(
          $product->product['product_store'][0] = 0;
     }
 );
+
+$hooks[] = array(
+    'type'  =>  'normal',
+    'match' =>  'product_url',
+    'get'   => function($product,$field){
+        return $product->url->link('product/product','&product_id=' . $product->id);
+    }
+);
+
 $hooks[] = array(
     'type'  =>  'normal',
     'match' =>  'store_id',
@@ -120,7 +129,7 @@ $hooks[] = array(
         }
         return $return;
     },
-    'add'   =>  function($key,$value,$product){
+    'addold'   =>  function($key,$value,$product){
         $category_id = 0;
         $catIndex = filter_var($key, FILTER_SANITIZE_NUMBER_INT);
         if($catIndex==1)
@@ -139,7 +148,34 @@ $hooks[] = array(
                 if ($category_id)
                     $product->product['product_category'][] = $category_id;
             }
+    },
+    'add'   =>  function($key,$value,$product){
+        $category_id = 0;
+        $catIndex = filter_var($key, FILTER_SANITIZE_NUMBER_INT);
+        $cat = explode($catIndex, $key);
+        $languageCode = end($cat);
+        $product->productMap['product_category'][$languageCode] = html_entity_decode($value);
+    },
+    '_bfs' => function($product){   
+        
+        $category_id = false;
+        foreach($product->productMap['product_category'] as $languageCode=>$value){
+            if (isset($product->categories[$languageCode][$value]) && $product->categories[$languageCode][$value]){
+                $product->product['product_category'][] = $product->categories[$languageCode][$value];
+                $category_id = true;
+            }
+        }
+        if(!$category_id){
+            $category_id = $product->saveMulCategory($product->productMap['product_category'],$product->languages);
+            foreach($product->productMap['product_category'] as $code=>$cats){
+                $product->categories[$code][$cats] = $category_id;
+                $product->product['product_category'][] = $category_id;
+            }
+        }else{
+           
+        }
     }
+    
 );
 
 $hooks[] = array(
@@ -172,7 +208,7 @@ $hooks[] = array(
     'type'  => 'regex',
     'match' => '/^description.*/',
     'get'   =>  function($product,$field){ 
-        return (isset($product->product[$field]) && !empty($product->product[$field])) ? $product->product[$field] : '';
+        return (isset($product->product[$field]) && !empty($product->product[$field])) ? html_entity_decode($product->product[$field]) : '';
     },
     'add'  =>  function($key,$value,$product){
         list($name, $language) = explode('_', $key);
@@ -363,17 +399,20 @@ $hooks[] = array(
     'match' =>  'related',
     'get'   =>  function($product,$field){
         $related = '';
-        $query = $product->db->query("select p.model from ".DB_PREFIX."product p left join ".DB_PREFIX."product_related rp on (p.product_id=rp.product_id) where rp.product_id='$product->id' group by rp.product_id");
+        $sql = "select p.product_id, p.model from ".DB_PREFIX."product p left join ".DB_PREFIX."product_related rp on (p.product_id=rp.related_id) where rp.product_id='{$product->id}'";
+        $query = $product->db->query($sql);
                     foreach($query->rows as $row){
-                        $related .=$row['model'].',';
+                        $related .=$row['model'].'|';
                     }
-         return trim($related,',');
+         return trim($related,'|');
     },
     'add' => function($key,$value,$product){
         if($value){
             $related_models = explode('|', $value);
             foreach($related_models as $model){
-                $product->product['product_related'][]=$product->getRelatedProducts($model);
+                if($product_id = $product->getProductByModel($model)){
+                    $product->product['product_related'][] = $product_id;
+                }
             }
         }
     }

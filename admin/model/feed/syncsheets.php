@@ -100,7 +100,7 @@ class ModelFeedSyncsheets extends Model {
     }
     
     public function extractHeader(){
-        if(isset($this->productfeed)){
+        if(isset($this->productfeed[0])){
             foreach($this->productfeed[0] as $key=>$item){
                 $this->headers[] = $key;
             }
@@ -165,7 +165,6 @@ class ModelFeedSyncsheets extends Model {
     public function applyFilters(){
         require_once('syncsheets_hooks.php');
         $matches = array();
-        
         foreach($this->headers as $field){
             if($hook = $this->find($field,$hooks)){
                 $matches[$field] = $hook;
@@ -190,7 +189,7 @@ class ModelFeedSyncsheets extends Model {
 
     public function get(){
         $this->productMap=array();
-        
+        $this->presets = array();
         foreach ($this->headers as $key=>$field){
             if(empty($field)){
                 $this->productMap[$key] = (isset($this->product[$key]))?$this->product[$key]:'';
@@ -487,17 +486,15 @@ class ModelFeedSyncsheets extends Model {
         
         $this->option_default = $this->setting['option'];
         //
-        $paths = $this->getPaths();
         
-        if($paths){
-            foreach($paths as $code=>$cats) {
-                foreach($cats as $cat)
-                    if(isset($cat['name']) && isset($cat['category_id']))
-                    $this->categories[$code][html_entity_decode($cat['name'])] = $cat['category_id'];
-            }
-         }
         $this->languages = $this->getLanguagesByCode();
+        $this->prepareCategoriesList();
         return $this;
+    }
+    
+    public function prepareCategoriesList(){
+        foreach($this->languages as $language)
+            $this->categories[$language['code']] = $this->getPaths($language['language_id']);
     }
     
     public function set(){
@@ -511,6 +508,8 @@ class ModelFeedSyncsheets extends Model {
 //            print_r($this->productfeed); exit;
             foreach ($this->productfeed as $i => $product) {
                 $this->_bind($product);
+                $this->_beforeSave($product);
+               
                 if(!is_numeric($product->product_id) && $product->product_id!='') {
                     $this->_merge();
                     $new_product_id = $this->addProduct($this->product,$this->languages);
@@ -526,6 +525,8 @@ class ModelFeedSyncsheets extends Model {
                     $this->response['updated'] = $update;
                 }
                 $this->collection[] = $this->product;
+                
+                $this->product = array();
             }
             $this->repairCategories();
             $this->cache->delete('*');
@@ -544,10 +545,10 @@ class ModelFeedSyncsheets extends Model {
         }
     }
     
-    private function _cb($product){
+    private function _beforeSave($product){
         foreach ($this->headers as $fn){
-            if(isset($fn['cb']) && $this->_isCl($fn['cb'])){
-                $fn['cb']->__invoke($this);
+            if(isset($fn['_bfs']) && $this->_isCl($fn['_bfs'])){
+                $fn['_bfs']->__invoke($this);
             }
         }
     }
@@ -708,10 +709,17 @@ class ModelFeedSyncsheets extends Model {
         }
         return $lenghts;
     }
-    
+    public function getCatPaths() {
+        $sql = "SELECT cp.category_id AS category_id, GROUP_CONCAT(cd1.name ORDER BY cp.level SEPARATOR ' > ') AS name, c.parent_id, c.sort_order FROM " . DB_PREFIX . "category_path cp LEFT JOIN " . DB_PREFIX . "category c ON (cp.path_id = c.category_id) LEFT JOIN " . DB_PREFIX . "category_description cd1 ON (c.category_id = cd1.category_id) LEFT JOIN " . DB_PREFIX . "category_description cd2 ON (cp.category_id = cd2.category_id) WHERE cd1.language_id = '" . (int) $this->config->get('config_language_id') . "' AND cd2.language_id = '" . (int) $this->config->get('config_language_id') . "'";
+        $sql .= " GROUP BY cp.category_id ORDER BY name";
+        $query = $this->db->query($sql);
+        if ($query->num_rows)
+            return $query->rows;
+    }
     public function getFieldSets() {
         $categories = array(''=>'None');
-        $cats = $this->getPaths();
+        $language_id = $this->config->get('config_language_id');
+        $cats = $this->getCatPaths();
         if($cats)
             foreach ($cats as $cItem) {
                 $categories[$cItem['category_id']] = $cItem['name'];
@@ -1275,7 +1283,7 @@ class ModelFeedSyncsheets extends Model {
     }
 
     public function getProduct($id) {
-        $query = $this->db->query("select p.*,m.name as manufacturer, (SELECT keyword FROM " . DB_PREFIX . "url_alias WHERE query = 'product_id=" . (int) $id . "') AS seo_keyword from " . DB_PREFIX . "product p LEFT JOIN " . DB_PREFIX . "manufacturer m ON (m.manufacturer_id=p.manufacturer_id) where p.product_id='$id'");
+        $query = $this->db->query("select p.*,m.name as manufacturer, (SELECT keyword FROM " . DB_PREFIX . "url_alias WHERE query = 'product_id=" . (int) $id . "' limit 0,1) AS seo_keyword from " . DB_PREFIX . "product p LEFT JOIN " . DB_PREFIX . "manufacturer m ON (m.manufacturer_id=p.manufacturer_id) where p.product_id='$id'");
         if ($query->num_rows) {
             return $query->row;
         }
@@ -1368,7 +1376,7 @@ class ModelFeedSyncsheets extends Model {
             return '';
     }
 
-    public function saveCategory($category_chain) {
+    public function saveCategory($category_chain,$languages) {
 
         if (empty($category_chain)) {
             return false;
@@ -1405,8 +1413,10 @@ class ModelFeedSyncsheets extends Model {
                 $is_new = true;
 
                 if($cv){
-                    $queries[] = $sql = 'INSERT INTO ' . DB_PREFIX . 'category_description SET category_id="' . $category_id . '", language_id = ' . (int) $this->config->get('config_language_id') . ', name="' . $this->db->escape($cv) . '"';
-                    $this->db->query($sql);
+                    foreach($languages as $language){
+                        $queries[] = $sql = 'INSERT INTO ' . DB_PREFIX . 'category_description SET category_id="' . $category_id . '", language_id = ' . (int) $language['language_id'] . ', name="' . $this->db->escape($cv) . '"';
+                        $this->db->query($sql);
+                    }
                     $queries[] = $sql = "INSERT INTO " . DB_PREFIX . "category_to_store SET category_id = '" . (int) $category_id . "', store_id = '" . 0 . "'";
                     $this->db->query($sql);
                 }else{
@@ -1420,6 +1430,83 @@ class ModelFeedSyncsheets extends Model {
 
             $i++;
         }
+        return $category_id;
+    }
+    
+    public function saveMulCategory($multi_categories,$languages) {
+        
+        if (empty($multi_categories)) {
+            return false;
+        }
+        foreach($multi_categories as $code=>$lang_cat){
+            $category_chain[$code] = $this->strip($lang_cat, '>');
+            $category_names[$code] = explode('>', $category_chain[$code]);
+        }
+//		print_r($category_names); exit;
+        $categories = array();
+
+        $parent_id = 0;
+        $category_id = 0;
+        $i = 1;
+        $admin_language = $this->config->get('config_admin_language');
+        $admin_language_id = $languages[$admin_language]['language_id'];
+        
+        if(!isset($category_names[$admin_language])){
+            foreach($languages as $code=>$lang){
+                if(isset($category_names[$code])){
+                    $admin_language = $code;
+                    $admin_language_id = $lang['language_id'];
+                    $to_add = $category_names[$code];
+                }
+            }
+        }else{
+            $to_add = $category_names[$admin_language];
+        }
+        
+        foreach ($to_add as $ck => $cv) {
+            $cv = trim($cv);
+            if($cv == '') return false;
+            $new_category = false;
+            $queries[] = $sql = "SELECT c.category_id FROM " . DB_PREFIX . "category_description cd
+				INNER JOIN " . DB_PREFIX . "category c ON cd.category_id=c.category_id
+				WHERE language_id = '" . (int) $admin_language_id . "' AND name='" . $this->db->escape($cv) . "' AND parent_id = '$parent_id'";
+            $this->writeLog($sql,'debug');
+            $sel = $this->db->query($sql);
+            if (!$sel->num_rows) {
+                $queries[] = $sql = "INSERT INTO " . DB_PREFIX . "category SET 
+					parent_id = '$parent_id',
+					status ='1',
+					image = '',
+					date_modified = NOW(), date_added = NOW()
+				";
+                $this->db->query($sql);
+                $this->writeLog($sql,'debug');
+                $category_id = $this->db->getLastId();
+                $is_new = true;
+
+                if($cv){
+                    foreach($languages as $language){
+                        $cat_value = (isset($category_names[$language['code']][$ck]))?$category_names[$language['code']][$ck]:$cv;
+                        $cat_value = trim($cat_value);
+                        $queries[] = $sql = 'INSERT INTO ' . DB_PREFIX . 'category_description SET category_id="' . $category_id . '", language_id = ' . (int) $language['language_id'] . ', name="' . $this->db->escape($cat_value) . '"';
+                        $this->db->query($sql);
+                        $this->writeLog($sql,'debug');
+                    }
+                    $queries[] = $sql = "INSERT INTO " . DB_PREFIX . "category_to_store SET category_id = '" . (int) $category_id . "', store_id = '" . 0 . "'";
+                    $this->db->query($sql);
+                    $this->writeLog($sql,'debug');
+                }else{
+                    return false;
+                }
+                
+            } else {
+                $category_id = $sel->row['category_id'];
+            }
+            $parent_id = $category_id;
+
+            $i++;
+        }
+       
         return $category_id;
     }
 
@@ -1451,12 +1538,17 @@ class ModelFeedSyncsheets extends Model {
         return $this->call(array('action' => 'updateoptIds', 'id' => $sheet_id, 'ids' => $data));
     }
 
-    public function getPaths() {
-        $sql = "SELECT cp.category_id AS category_id, GROUP_CONCAT(cd1.name ORDER BY cp.level SEPARATOR ' > ') AS name, c.parent_id, c.sort_order FROM " . DB_PREFIX . "category_path cp LEFT JOIN " . DB_PREFIX . "category c ON (cp.path_id = c.category_id) LEFT JOIN " . DB_PREFIX . "category_description cd1 ON (c.category_id = cd1.category_id) LEFT JOIN " . DB_PREFIX . "category_description cd2 ON (cp.category_id = cd2.category_id) WHERE cd1.language_id = '" . (int) $this->config->get('config_language_id') . "' AND cd2.language_id = '" . (int) $this->config->get('config_language_id') . "'";
+    public function getPaths($language_id) {
+        $sql = "SELECT cp.category_id AS category_id, GROUP_CONCAT(cd1.name ORDER BY cp.level SEPARATOR ' > ') AS name FROM " . DB_PREFIX . "category_path cp LEFT JOIN " . DB_PREFIX . "category c ON (cp.path_id = c.category_id) LEFT JOIN " . DB_PREFIX . "category_description cd1 ON (c.category_id = cd1.category_id) LEFT JOIN " . DB_PREFIX . "category_description cd2 ON (cp.category_id = cd2.category_id) WHERE cd1.language_id = '" . (int) $language_id . "' AND cd2.language_id = '" . (int) $language_id . "'";
         $sql .= " GROUP BY cp.category_id ORDER BY name";
         $query = $this->db->query($sql);
-        if ($query->num_rows)
-            return $query->rows;
+        $category_path = array();
+        if ($query->num_rows){
+           foreach($query->rows as $cat){
+               $category_path[html_entity_decode($cat['name'])] = $cat['category_id'];
+           }
+        }
+        return $category_path;
     }
 
     public function fetchLanguageCategory(){
@@ -1609,7 +1701,7 @@ class ModelFeedSyncsheets extends Model {
         return $product_id;
     }
 
-    public function editProduct($product_id,$data) {
+    public function editProduct($product_id,$data) { //print_r($data); exit;
         $queries = array();
         if (isset($data['product'])) {
             $sql = 'UPDATE `' . DB_PREFIX . 'product` SET ';
@@ -1619,6 +1711,7 @@ class ModelFeedSyncsheets extends Model {
             $sql = trim($sql, ',');
             $sql .= ' where product_id="' . $product_id . '"';
 //            $queries[] = $sql;
+           
             $this->db->query($sql);
         }
         if (isset($data['product_description'])){
@@ -1681,13 +1774,13 @@ class ModelFeedSyncsheets extends Model {
                 }
             }
         }
-        if (!empty($data['product_attribute'])) {
+        if (!empty($data['product_attribute'])) { 
 //            $queries[] = "DELETE FROM " . DB_PREFIX . "product_attribute WHERE product_id = '" . (int) $product_id . "'";
             foreach ($data['product_attribute'] as $product_attribute) {
                 if ($product_attribute['attribute_id']) {
-                    $queries[] = $sql = "DELETE FROM " . DB_PREFIX . "product_attribute WHERE product_id = '" . (int) $product_id . "' AND attribute_id = '" . (int) $product_attribute['attribute_id'] . "'";
-                    $this->db->query($sql);
                     foreach ($product_attribute['product_attribute_description'] as $language_id => $product_attribute_description) {
+                        $queries[] = $sql = "DELETE FROM " . DB_PREFIX . "product_attribute WHERE product_id = '" . (int) $product_id . "' AND attribute_id = '" . (int) $product_attribute['attribute_id'] . "' AND language_id = '" . (int) $language_id . "'";
+                        $this->db->query($sql);
                         if (!empty($product_attribute_description['text'])){
                             $queries[] = $sql = "INSERT INTO " . DB_PREFIX . "product_attribute SET product_id = '" . (int) $product_id . "', attribute_id = '" . (int) $product_attribute['attribute_id'] . "', language_id = '" . (int) $language_id . "', text = '" . $this->db->escape($product_attribute_description['text']) . "'";
                             $this->db->query($sql);
@@ -1705,7 +1798,19 @@ class ModelFeedSyncsheets extends Model {
         }
         foreach ($queries as $query) {
             $this->writeLog($query,'sql');
-//            $this->db->query($query);
+        }
+        
+        if(isset($data['product_related'])){
+            $this->db->query("DELETE FROM " . DB_PREFIX . "product_related WHERE product_id = '" . (int)$product_id . "'");
+//            $this->db->query("DELETE FROM " . DB_PREFIX . "product_related WHERE related_id = '" . (int)$product_id . "'");
+            if (isset($data['product_related'])) {
+                foreach ($data['product_related'] as $related_id) {
+                    $this->db->query("DELETE FROM " . DB_PREFIX . "product_related WHERE product_id = '" . (int)$product_id . "' AND related_id = '" . (int)$related_id . "'");
+                    $this->db->query("INSERT INTO " . DB_PREFIX . "product_related SET product_id = '" . (int)$product_id . "', related_id = '" . (int)$related_id . "'");
+//                    $this->db->query("DELETE FROM " . DB_PREFIX . "product_related WHERE product_id = '" . (int)$related_id . "' AND related_id = '" . (int)$product_id . "'");
+//                    $this->db->query("INSERT INTO " . DB_PREFIX . "product_related SET product_id = '" . (int)$related_id . "', related_id = '" . (int)$product_id . "'");
+                }
+            }
         }
         
         if(isset($data['product_option'])){
@@ -2171,6 +2276,47 @@ class ModelFeedSyncsheets extends Model {
         $query = $this->db->query("select * from  " . DB_PREFIX . "gs_settings");
         if ($query->num_rows)
             return $query->rows;
+    }
+    
+    public function getProductByModel($model){
+        $query = $this->db->query("select product_id from " . DB_PREFIX . "product where model = '{$model}'");
+        if($query->num_rows){
+            return $query->row['product_id'];
+        }
+        return false;
+    }
+    
+    public function getProductRelated($product_id) {
+        $product_related_data = array();
+        $query = $this->db->query("SELECT * FROM " . DB_PREFIX . "product_related WHERE product_id = '" . (int)$product_id . "'");
+        foreach ($query->rows as $result) {
+                $product_related_data[] = $result['related_id'];
+        }
+        return $product_related_data;
+    }
+    
+    public function saveCustomer($data){ 
+        if(is_numeric($data['customer_id'])){
+            $customer_id = $data['customer_id'];
+            $this->db->query("UPDATE " . DB_PREFIX . "customer SET firstname = '" . $this->db->escape($data['firstname']) . "', lastname = '" . $this->db->escape($data['lastname']) . "', email = '" . $this->db->escape($data['email']) . "', telephone = '" . $this->db->escape($data['telephone']) . "', fax = '" . $this->db->escape($data['fax']) . "', newsletter = '" . (int)$data['newsletter'] . "', customer_group_id = '" . (int)$data['customer_group_id'] . "', salt = '" . $data['salt'] . "', password = '" . $data['password'] . "', status = '" . (int)$data['status'] . "' WHERE customer_id = '" . (int)$customer_id . "'");
+            $this->addAddress($data, $customer_id);
+        }else{
+            $this->db->query("INSERT INTO " . DB_PREFIX . "customer SET firstname = '" . $this->db->escape($data['firstname']) . "', lastname = '" . $this->db->escape($data['lastname']) . "', email = '" . $this->db->escape($data['email']) . "', telephone = '" . $this->db->escape($data['telephone']) . "', fax = '" . $this->db->escape($data['fax']) . "', newsletter = '" . (int)$data['newsletter'] . "', customer_group_id = '" . (int)$data['customer_group_id'] . "', salt = '" . $data['salt'] . "', password = '" . $data['password'] . "', status = '" . (int)$data['status'] . "', date_added = NOW()");
+      	    $customer_id = $this->db->getLastId();
+            $this->addAddress($data, $customer_id);
+            return $customer_id;
+        }
+	return false;
+    }
+    
+    public function addAddress($data,$customer_id){
+        $this->db->query("DELETE FROM " . DB_PREFIX . "address WHERE customer_id = '" . (int)$customer_id . "'");
+        if (isset($data['address'])) {
+            $data['address'] = (array)json_decode($data['address']);
+            foreach ($data['address'] as $address) {
+                $this->db->query("INSERT INTO " . DB_PREFIX . "address SET customer_id = '" . (int)$customer_id . "', firstname = '" . $this->db->escape($address['firstname']) . "', lastname = '" . $this->db->escape($address['lastname']) . "', company = '" . $this->db->escape($address['company']) . "', company_id = '" . $this->db->escape($address['company_id']) . "', tax_id = '" . $this->db->escape($address['tax_id']) . "', address_1 = '" . $this->db->escape($address['address_1']) . "', address_2 = '" . $this->db->escape($address['address_2']) . "', city = '" . $this->db->escape($address['city']) . "', postcode = '" . $this->db->escape($address['postcode']) . "', country_id = '" . (int)$address['country_id'] . "', zone_id = '" . (int)$address['zone_id'] . "'");
+            }
+	}
     }
 	
 }
