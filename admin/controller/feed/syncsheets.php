@@ -7,7 +7,6 @@ class ControllerFeedSyncsheets extends Controller {
         public function msg($message,$type='Notice'){
             $this->_log[] = date('Y-m-d G:i:s') . ' - ' . $type .' : '. $message . "\n";
         }
-
         public function feeds(){
             if(!isset($this->request->get['action'])){
                 die(json_encode(array('error'=>'Error 901: Sorry, Unable to serve request!')));

@@ -1438,11 +1438,13 @@ class ModelFeedSyncsheets extends Model {
         if (empty($multi_categories)) {
             return false;
         }
-        foreach($multi_categories as $code=>$lang_cat){
+        foreach($multi_categories as $code=>$lang_cats){
+          foreach($lang_cats as $lang_cat){
             $category_chain[$code] = $this->strip($lang_cat, '>');
             $category_names[$code] = explode('>', $category_chain[$code]);
+          }
         }
-//		print_r($category_names); exit;
+
         $categories = array();
 
         $parent_id = 0;
