@@ -1131,7 +1131,7 @@ class ModelFeedSyncsheets extends Model {
                 }
             }
         }
-
+        if(isset($fields['attribute']['required']) && isset($fields['attribute']['default'])){
         foreach($fields['attribute']['required'] as $item) {
                 foreach($fields['attribute']['default'] as $key => $value) {
                     if(!isset($languages[$key])) continue;
@@ -1140,7 +1140,7 @@ class ModelFeedSyncsheets extends Model {
                     $headers['AT-'.$trimmed.' ('.$language['code'].')'] = '{"field":"attribute","id":'.$item.',"lang":"'.$language['code'].'","name":"'.$trimmed.'"}';
                 }
             }
-        
+        }
         $headers['options'] = '{"field":"options"}';
        
         $customer_groups = $this->getCustomerGroup();

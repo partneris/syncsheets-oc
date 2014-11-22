@@ -151,31 +151,36 @@ $hooks[] = array(
     },
     'add'   =>  function($key,$value,$product){
         $category_id = 0;
+        $product->product['product_category'] = array();
         $catIndex = filter_var($key, FILTER_SANITIZE_NUMBER_INT);
         $cat = explode($catIndex, $key);
         $languageCode = end($cat);
-        $product->productMap['product_category'][$languageCode] = html_entity_decode($value);
+        if($value){
+            $product->productMap['product_category'][$languageCode] = html_entity_decode($value);
+        }
     },
     '_bfs' => function($product){   
-        
-        $category_id = false;
-        foreach($product->productMap['product_category'] as $languageCode=>$value){
-            if (isset($product->categories[$languageCode][$value]) && $product->categories[$languageCode][$value]){
-                $product->product['product_category'][] = $product->categories[$languageCode][$value];
-                $category_id = true;
+        if(isset($product->productMap['product_category'])){
+            $category_id = false;
+            
+            foreach($product->productMap['product_category'] as $languageCode=>$value){
+                if (isset($product->categories[$languageCode][$value]) && $product->categories[$languageCode][$value]){
+                    $product->product['product_category'][] = $product->categories[$languageCode][$value];
+                    $category_id = true;
+                }
             }
-        }
-        if(!$category_id){
-            $category_id = $product->saveMulCategory($product->productMap['product_category'],$product->languages);
-            foreach($product->productMap['product_category'] as $code=>$cats){
-                $product->categories[$code][$cats] = $category_id;
-                $product->product['product_category'][] = $category_id;
+            
+            if(!$category_id && $product->productMap['product_category']){
+                $category_id = $product->saveMulCategory($product->productMap['product_category'],$product->languages);
+                foreach($product->productMap['product_category'] as $code=>$cats){
+                    $product->categories[$code][$cats] = $category_id;
+                    $product->product['product_category'][] = $category_id;
+                }
+            }else{
+
             }
-        }else{
-           
         }
     }
-    
 );
 
 $hooks[] = array(

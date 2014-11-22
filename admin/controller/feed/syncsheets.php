@@ -1,5 +1,5 @@
 <?php 
-define('GSS_VERSION', "0.3.5");
+define('GSS_VERSION', "0.3.6");
 class ControllerFeedSyncsheets extends Controller {
 	private $error = array(); 
         public $_log = array();
@@ -186,7 +186,36 @@ class ControllerFeedSyncsheets extends Controller {
                     }
                     die(json_encode($return));
                     break;
+                case 'getImages':
+                    $path = (isset($this->request->post['path']))?$this->request->post['path']:false;
+                    $this->getImages($path);
+                    break;
             }
+        }
+        
+        public function getImages($path=false){
+            
+            if(!$path){
+                 $dir = DIR_IMAGE;
+            }else{
+                if(is_dir(DIR_IMAGE.$path)){
+                    $dir = DIR_IMAGE.$path;
+                }else{
+                    die(json_encode(array('error'=>DIR_IMAGE.$path .' : Path not found on the server, please verify the path and try again')));
+                }
+            }
+            $results = array();
+            if (is_dir($dir)) {
+                $iterator = new RecursiveDirectoryIterator($dir);
+                foreach ( new RecursiveIteratorIterator($iterator, RecursiveIteratorIterator::CHILD_FIRST) as $file ) {
+                    if ($file->isFile()) {
+                        $thispath = str_replace('\\', '/', $file);
+                        $thisfile = utf8_encode($file->getFilename());
+                        $results[] = str_replace(DIR_IMAGE,'image/',$thispath);
+                    }
+                }
+            }
+            die(json_encode($results)); 
         }
         
         public function export($headers,$start,$limit){
@@ -354,6 +383,7 @@ class ControllerFeedSyncsheets extends Controller {
             
             
             if (($this->request->server['REQUEST_METHOD'] == 'POST') && $this->validate()) {
+                print_r($this->request->post); exit;
                     $posted = $this->request->post; 
                     $data = array(
                         'title'         =>  $posted['title'],
@@ -415,6 +445,9 @@ class ControllerFeedSyncsheets extends Controller {
 //            echo $this->data['max_discount']; exit;
             $this->load->model('catalog/attribute');
             $this->data['attributes'] = $this->model_catalog_attribute->getAttributes();
+            
+            print_r($this->data['attributes']); exit;
+            
             $this->load->model('catalog/option');
             $this->data['options'] = $this->model_catalog_option->getOptions();
             foreach($this->data['options'] as $kv=>$option){
@@ -605,9 +638,8 @@ class ControllerFeedSyncsheets extends Controller {
         }
 
         public function test(){
-            $query = $this->db->query("update product_description set name = 'Update thiss product' where product_id=1 and language_id=1");
-           
-            echo $this->db->countAffected();
+            $this->load->model('feed/syncsheets');
+            $this->model_feed_syncsheets->generateSetting();
         }
 }
 ?>
