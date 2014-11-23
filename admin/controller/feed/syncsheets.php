@@ -211,7 +211,7 @@ class ControllerFeedSyncsheets extends Controller {
                     if ($file->isFile()) {
                         $thispath = str_replace('\\', '/', $file);
                         $thisfile = utf8_encode($file->getFilename());
-                        $results[] = str_replace(DIR_IMAGE,'image/',$thispath);
+                        $results[] = str_replace(DIR_IMAGE,'',$thispath);
                     }
                 }
             }
