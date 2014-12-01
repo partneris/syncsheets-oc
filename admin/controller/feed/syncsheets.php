@@ -1,5 +1,5 @@
 <?php 
-define('GSS_VERSION', "0.3.6");
+define('GSS_VERSION', "0.4.1");
 class ControllerFeedSyncsheets extends Controller {
 	private $error = array(); 
         public $_log = array();
@@ -59,11 +59,11 @@ class ControllerFeedSyncsheets extends Controller {
                     $headers = $this->model_feed_syncsheets->buildJsonHeader($this->request->post['settings']);
                     die(json_encode($headers));
                     break;
-               case 'getcount':
+                case 'getcount':
                        $count = $this->model_feed_syncsheets->getProductsCount(array());
                        die(json_encode(array('count'=>$count)));
                     break;
-               case 'oc2gss':
+                case 'oc2gss':
                    $headers = $this->request->post['headers'];
                        $count = $this->request->post['count'];
                        $limit = (isset($this->request->post['limit']))?$this->request->post['limit']:500;
@@ -74,6 +74,7 @@ class ControllerFeedSyncsheets extends Controller {
                        $this->export($headers,$start,$limit);
                     break;
                 case 'sync':
+                    
                        $rows = json_decode(base64_decode($this->request->post['rows']));
                        $instance = $this->model_feed_syncsheets
                                         ->setSetting($this->request->post['settings'])
@@ -189,6 +190,25 @@ class ControllerFeedSyncsheets extends Controller {
                 case 'getImages':
                     $path = (isset($this->request->post['path']))?$this->request->post['path']:false;
                     $this->getImages($path);
+                    break;
+                case 'saveAttribute':
+                    
+                    
+                    $data = base64_decode($this->request->post['attr']);
+                    $raw = urldecode($data); 
+                    parse_str($raw,$data);
+                    $row = array();
+                    $this->load->model('catalog/attribute');
+                    $row['attribute_group_id'] = $data['attribute_group_id'];
+                    $row['sort_order'] = 0;
+                    $row['attribute_description'] = $data['attribute_description'];
+                    $this->model_catalog_attribute->addAttribute($row);
+                    break;
+                case 'getCreateAttributeData':
+                    $languages = $this->model_feed_syncsheets->getLanguagesByCode();
+                    $default =  $this->config->get('config_language');
+                    $attibute_groups = $this->model_feed_syncsheets->getAttributeGroups($this->config->get('config_language_id'));
+                    die(json_encode(array('languages'=>$languages,'default_language'=>$default,'attribute_groups'=>$attibute_groups)));
                     break;
             }
         }
@@ -325,6 +345,7 @@ class ControllerFeedSyncsheets extends Controller {
             
             $this->data['sheets'] = $this->model_feed_syncsheets->fetchSpreadSheets();
             $this->data['settings'] = $this->model_feed_syncsheets->getSettings();
+            
             $this->language->load('feed/syncsheets');
 
             $this->document->setTitle($this->language->get('heading_title'));
@@ -383,7 +404,6 @@ class ControllerFeedSyncsheets extends Controller {
             
             
             if (($this->request->server['REQUEST_METHOD'] == 'POST') && $this->validate()) {
-                print_r($this->request->post); exit;
                     $posted = $this->request->post; 
                     $data = array(
                         'title'         =>  $posted['title'],
@@ -405,6 +425,7 @@ class ControllerFeedSyncsheets extends Controller {
                 $this->data['title'] = $settings['title'];
                 $this->data['settings'] = unserialize(base64_decode($settings['settings']));
             }
+//            print_r($this->data['settings']); exit;
             
 //            if(isset($this->request->post['id'])){
 //                $settings = $this->request->post;
@@ -445,9 +466,7 @@ class ControllerFeedSyncsheets extends Controller {
 //            echo $this->data['max_discount']; exit;
             $this->load->model('catalog/attribute');
             $this->data['attributes'] = $this->model_catalog_attribute->getAttributes();
-            
-            print_r($this->data['attributes']); exit;
-            
+            $this->data['attribute_groups'] = $this->model_feed_syncsheets->getAttributeGroups($this->config->get('config_language_id'));
             $this->load->model('catalog/option');
             $this->data['options'] = $this->model_catalog_option->getOptions();
             foreach($this->data['options'] as $kv=>$option){

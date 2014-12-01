@@ -94,7 +94,16 @@
           </table>
       </div>
           <div id="tab-attributes">
-              
+              <table>
+                  <tr>
+                      <td>Default Attribute Group</td>
+                      <td><select name="data[attribute_group]">
+                          <?php foreach($attribute_groups as $group): ?>
+                              <option <?php if(isset($settings['attribute_group']) && $settings['attribute_group'] == $group['attribute_group_id']) echo "selected=selected"; ?> value="<?php echo $group['attribute_group_id']; ?>"><?php echo $group['name']; ?></option>
+                          <?php endforeach; ?>
+                          </select></td>
+                  </tr>
+              </table>
           <table class="list">
               <thead>
                     <th class="left">Sr. No</th>

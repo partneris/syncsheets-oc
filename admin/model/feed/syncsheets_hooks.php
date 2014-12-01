@@ -353,8 +353,10 @@ $hooks[] = array(
     'get'   => function($product,$field){
         return $product->product['options'];
     },
-    'add' => function($key,$value,$product){
-        $value = str_replace("'","\"", $value);
+    'add' => function($key,$value,$product){ 
+//        $value = str_replace("'","\"", $value);
+//        print_r(json_decode(stripslashes($value))); exit;
+        
         $options = json_decode($value);
         if($options){
             $product->product['product_option']=array();

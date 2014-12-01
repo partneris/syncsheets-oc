@@ -148,9 +148,34 @@ class ModelFeedSyncsheets extends Model {
         if ($specials) {
             $this->product['special'] = json_encode($specials);
         }
+        $json_option = "";
         $options = $this->getProductOptions($product_id);
-        if($options) $options = json_encode($options); else $options = "";
-        $this->product['options'] = $options;
+        $json_opt = json_encode($options,JSON_UNESCAPED_UNICODE);
+//      print_r($options); exit;
+        /*if($options){
+            $json_option = "[";
+            foreach($options as $option){ 
+                
+                $_json_option_row = '{';
+                $_json_option_text = '';
+                foreach($option as $key=>$value){
+                    $_json_option_text .= '"' . $key . '":' . '"' . $value . '",';
+                }
+                $_json_option_text = trim($_json_option_text,',');
+                
+                $_json_option_row .= $_json_option_text . '}';
+                
+                $json_option .= $_json_option_text;
+                
+            }
+            
+            $json_option .= trim($json_option,',');
+            $json_option .= ']';
+
+            $options = $json_option;
+        }else $options = "";
+        */
+        $this->product['options'] = $json_opt;
         return $this;
     }
     
@@ -163,8 +188,11 @@ class ModelFeedSyncsheets extends Model {
     }
     
     public function applyFilters(){
+        
         require_once('syncsheets_hooks.php');
+        
         $matches = array();
+        
         foreach($this->headers as $field){
             if($hook = $this->find($field,$hooks)){
                 $matches[$field] = $hook;
@@ -172,10 +200,54 @@ class ModelFeedSyncsheets extends Model {
                 $matches[$field] = '';
             }
         }
+        
         $this->headers = $matches;
         $this->_beforetFilter();
+        
         return $this;
     }
+    
+    public function array2json($arr) {
+    
+    $parts = array();
+    $is_list = false;
+
+    //Find out if the given array is a numerical array
+    $keys = array_keys($arr);
+    $max_length = count($arr)-1;
+    if(($keys[0] == 0) and ($keys[$max_length] == $max_length)) {//See if the first key is 0 and last key is length - 1
+        $is_list = true;
+        for($i=0; $i<count($keys); $i++) { //See if each key correspondes to its position
+            if($i != $keys[$i]) { //A key fails at position check.
+                $is_list = false; //It is an associative array.
+                break;
+            }
+        }
+    }
+
+    foreach($arr as $key=>$value) {
+        if(is_array($value)) { //Custom handling for arrays
+            if($is_list) $parts[] = $this->array2json($value); /* :RECURSION: */
+            else $parts[] = '"' . $key . '":' . $this->array2json($value); /* :RECURSION: */
+        } else {
+            $str = '';
+            if(!$is_list) $str = '"' . $key . '":';
+
+            //Custom handling for multiple data types
+            if(is_numeric($value)) $str .= $value; //Numbers
+            elseif($value === false) $str .= 'false'; //The booleans
+            elseif($value === true) $str .= 'true';
+            else $str .= '"' . addslashes(html_entity_decode($value)) . '"'; //All other things
+            // :TODO: Is there any more datatype we should be in the lookout for? (Object?)
+
+            $parts[] = $str;
+        }
+    }
+    $json = implode(',',$parts);
+    
+    if($is_list) return '[' . $json . ']';//Return numerical JSON
+    return '{' . $json . '}';//Return associative JSON
+} 
     
     public function find($field,$hooks){
         foreach($hooks as $item){
@@ -1131,14 +1203,13 @@ class ModelFeedSyncsheets extends Model {
                 }
             }
         }
-        if(isset($fields['attribute']['required']) && isset($fields['attribute']['default'])){
-        foreach($fields['attribute']['required'] as $item) {
-                foreach($fields['attribute']['default'] as $key => $value) {
-                    if(!isset($languages[$key])) continue;
-                    $language = $languages[$key];
-                    $trimmed = $this->getAttributeName($item, $key);
-                    $headers['AT-'.$trimmed.' ('.$language['code'].')'] = '{"field":"attribute","id":'.$item.',"lang":"'.$language['code'].'","name":"'.$trimmed.'"}';
-                }
+        
+        $query = $this->db->query("SELECT ad.* , l.code
+        FROM ".DB_PREFIX."attribute_description ad
+        LEFT JOIN ".DB_PREFIX."language l ON ( ad.language_id = l.language_id )");
+        if($query->rows){
+            foreach($query->rows as $ak=>$av){
+                $headers['AT-'.$av['name'].' ('.$av['code'].')'] = '{"field":"attribute","id":'.$av['attribute_id'].',"lang":"'.$av['code'].'","name":"'.$av['name'].'"}';
             }
         }
         $headers['options'] = '{"field":"options"}';
@@ -1573,7 +1644,7 @@ class ModelFeedSyncsheets extends Model {
     } 
     
     public function addProduct($data) {
-        
+//        print_r($data); exit;
         $product = $data['product'];
         if(empty($product['model']) && !isset($data['product_description'][$this->config->get('config_language_id')]))
             return false;
@@ -2319,6 +2390,15 @@ class ModelFeedSyncsheets extends Model {
                 $this->db->query("INSERT INTO " . DB_PREFIX . "address SET customer_id = '" . (int)$customer_id . "', firstname = '" . $this->db->escape($address['firstname']) . "', lastname = '" . $this->db->escape($address['lastname']) . "', company = '" . $this->db->escape($address['company']) . "', company_id = '" . $this->db->escape($address['company_id']) . "', tax_id = '" . $this->db->escape($address['tax_id']) . "', address_1 = '" . $this->db->escape($address['address_1']) . "', address_2 = '" . $this->db->escape($address['address_2']) . "', city = '" . $this->db->escape($address['city']) . "', postcode = '" . $this->db->escape($address['postcode']) . "', country_id = '" . (int)$address['country_id'] . "', zone_id = '" . (int)$address['zone_id'] . "'");
             }
 	}
+    }
+    
+    public function getAttributeGroups($language_id){
+//        echo "SELECT * FROM `oc_attribute_group` a  LEFT JOIN `oc_attribute_group_description` ad ON (a.`attribute_group_id`=ad.`attribute_group_id`) where ad.language_id='{$language_id}'"; exit;
+        $result = $this->db->query("SELECT * FROM `oc_attribute_group` a  LEFT JOIN `oc_attribute_group_description` ad ON (a.`attribute_group_id`=ad.`attribute_group_id`) where ad.language_id='{$language_id}'");
+        if($result->num_rows){
+            return $result->rows;
+        }
+        return false;
     }
 	
 }
