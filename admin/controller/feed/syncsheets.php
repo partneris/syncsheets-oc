@@ -1,5 +1,5 @@
 <?php 
-define('GSS_VERSION', "0.4.1");
+define('GSS_VERSION', "0.4.2");
 class ControllerFeedSyncsheets extends Controller {
 	private $error = array(); 
         public $_log = array();
@@ -231,7 +231,7 @@ class ControllerFeedSyncsheets extends Controller {
                     if ($file->isFile()) {
                         $thispath = str_replace('\\', '/', $file);
                         $thisfile = utf8_encode($file->getFilename());
-                        $results[] = str_replace(DIR_IMAGE,'image/',$thispath);
+                        $results[] = str_replace(DIR_IMAGE,'',$thispath);
                     }
                 }
             }
@@ -466,7 +466,7 @@ class ControllerFeedSyncsheets extends Controller {
 //            echo $this->data['max_discount']; exit;
             $this->load->model('catalog/attribute');
             $this->data['attributes'] = $this->model_catalog_attribute->getAttributes();
-            $this->data['attribute_groups'] = $this->model_feed_syncsheets->getAttributeGroups($this->config->get('config_language_id'));
+            $this->data['attribute_groups'] = array(); //$this->model_feed_syncsheets->getAttributeGroups($this->config->get('config_language_id'));
             $this->load->model('catalog/option');
             $this->data['options'] = $this->model_catalog_option->getOptions();
             foreach($this->data['options'] as $kv=>$option){
@@ -659,6 +659,15 @@ class ControllerFeedSyncsheets extends Controller {
         public function test(){
             $this->load->model('feed/syncsheets');
             $this->model_feed_syncsheets->generateSetting();
+        }
+        
+        public function json_cb(&$item, $key) {
+            if (is_string($item)) $item = mb_encode_numericentity($item, array (0x80, 0xffff, 0, 0xffff), 'UTF-8'); 
+        }
+
+        public function gss_json_encode($arr){
+            array_walk_recursive($arr,array($this,'json_cb'));
+            return mb_decode_numericentity(json_encode($arr), array (0x80, 0xffff, 0, 0xffff), 'UTF-8');
         }
 }
 ?>

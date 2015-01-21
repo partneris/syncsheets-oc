@@ -136,7 +136,7 @@ class ModelFeedSyncsheets extends Model {
         }
         $this->attributes = array();
         $this->attributes = $this->getProductAttrbutes($product_id);
-        
+//        print_r($this->attributes); exit;
         $this->product_discount = array();
         $this->product_special = array();
         $discounts = $this->getProductDiscounts($product_id);
@@ -150,31 +150,8 @@ class ModelFeedSyncsheets extends Model {
         }
         $json_option = "";
         $options = $this->getProductOptions($product_id);
-        $json_opt = json_encode($options,JSON_UNESCAPED_UNICODE);
-//      print_r($options); exit;
-        /*if($options){
-            $json_option = "[";
-            foreach($options as $option){ 
-                
-                $_json_option_row = '{';
-                $_json_option_text = '';
-                foreach($option as $key=>$value){
-                    $_json_option_text .= '"' . $key . '":' . '"' . $value . '",';
-                }
-                $_json_option_text = trim($_json_option_text,',');
-                
-                $_json_option_row .= $_json_option_text . '}';
-                
-                $json_option .= $_json_option_text;
-                
-            }
-            
-            $json_option .= trim($json_option,',');
-            $json_option .= ']';
+        $json_opt = $this->gss_json_encode($options);
 
-            $options = $json_option;
-        }else $options = "";
-        */
         $this->product['options'] = $json_opt;
         return $this;
     }
@@ -626,11 +603,10 @@ class ModelFeedSyncsheets extends Model {
     }
     
     private function _merge(){
-      
         if(isset($this->product['product_description']))
            foreach ($this->product['product_description'] as $key => $pDesc)
                $this->product['product_description'][$key] = array_merge($this->desc_default, $pDesc);
-        if($this->action!='update')
+//        if($this->action!='update')
         $this->product['product'] = array_merge($this->defaults, $this->product['product']);
         
         if(!isset($product->product['product_store']))
@@ -1192,10 +1168,7 @@ class ModelFeedSyncsheets extends Model {
                 } else {
                     $code = $this->config->get('config_language');
                     if ($items == 'category') {
-                        $count = $this->getMaxCategory(); // get the maximimum category count associated with the product
-                        for ($i = 1; $i <= $count; $i++) {
-                            $headers[$trimmed . $i . $code] = '{"field":"'.$items.'","lang":"'.$code.'","idx":"'.$i.'"}';
-                        }
+                        $headers[$trimmed . ' (' . $code . ')'] = '{"field":"'.$items.'","lang":"'.$code.'","del":","}';
                     } else {
                         $headers[$trimmed] = $items;
                         $headers[$trimmed] = '{"field":"'.$items.'"}';
@@ -1889,6 +1862,7 @@ class ModelFeedSyncsheets extends Model {
         if(isset($data['product_option'])){
             $this->db->query("DELETE FROM " . DB_PREFIX . "product_option WHERE product_id = '" . (int)$product_id . "'");
             $this->db->query("DELETE FROM " . DB_PREFIX . "product_option_value WHERE product_id = '" . (int)$product_id . "'");
+            
             foreach($data['product_option'] as $option){
                 $this->saveOption($option,$product_id);
             }
@@ -1985,10 +1959,9 @@ class ModelFeedSyncsheets extends Model {
         $option_types = array('select', 'radio', 'checkbox', 'image', 'text', 'textarea', 'file', 'date', 'time', 'datetime');
 
         $option->required = ($option->required == 'Yes' || $option->required == 'yes' || $option->required == 'Y' || $option->required == 1) ? 1 : 0;
-        $option->subtract = ($option->subtract == 'Yes' || $option->subtract == 1) ? 1 : 0;
         $is_new = false;
         $data = array();
-        
+
         // validate parameters
         //
 		if (!in_array($option->type, $option_types)) {
@@ -2083,6 +2056,7 @@ class ModelFeedSyncsheets extends Model {
                 'weight' => abs($option->weight),
                 'weight_prefix' => ($option->weight < 0 ? '-' : '+'),
             );
+
             $sql = "insert into " . DB_PREFIX . "product_option_value set";
 
             foreach ($rec as $key => $val) {
@@ -2345,6 +2319,12 @@ class ModelFeedSyncsheets extends Model {
             return $query->row;
         }
     } 
+    
+    public function deleteSelected($ids){
+        $query = $this->db->query("delete from ".DB_PREFIX."gs_settings where id IN ($ids)");
+        $this->call(array('action'=>'deleteSettings','ids'=>$ids));
+    }
+ 
     public function getSettings() {
         $query = $this->db->query("select * from  " . DB_PREFIX . "gs_settings");
         if ($query->num_rows)
@@ -2401,6 +2381,15 @@ class ModelFeedSyncsheets extends Model {
         return false;
     }
 	
+    
+    public function json_cb(&$item, $key) {
+            if (is_string($item)) $item = mb_encode_numericentity($item, array (0x80, 0xffff, 0, 0xffff), 'UTF-8'); 
+        }
+
+    public function gss_json_encode($arr){
+        array_walk_recursive($arr,array($this,'json_cb'));
+        return mb_decode_numericentity(json_encode($arr), array (0x80, 0xffff, 0, 0xffff), 'UTF-8');
+    }
 }
 
 ?>
