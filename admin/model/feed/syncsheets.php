@@ -1958,7 +1958,7 @@ class ModelFeedSyncsheets extends Model {
         $extended_types = array('select', 'radio', 'checkbox', 'image');
         $option_types = array('select', 'radio', 'checkbox', 'image', 'text', 'textarea', 'file', 'date', 'time', 'datetime');
 
-        $option->required = ($option->required == 'Yes' || $option->required == 'yes' || $option->required == 'Y' || $option->required == 1) ? 1 : 0;
+//        $option->required = ($option->required == 'Yes' || $option->required == 'yes' || $option->required == 'Y' || $option->required == 1) ? 1 : 0;
         $is_new = false;
         $data = array();
 

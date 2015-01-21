@@ -309,8 +309,7 @@ $hooks[] = array(
 	               $product->product['product_image'][$key]['sort_order'] = $key;
 	             }
              }elseif($image){
-                 print_r($image); exit;
-             	   $product->product['product_image'][$key]['image'] = $image;
+                   $product->product['product_image'][$key]['image'] = $image;
 	           $product->product['product_image'][$key]['sort_order'] = $key;
              }
         }
@@ -446,9 +445,11 @@ $hooks[] = array(
     'add' => function($key,$value,$product){
         if($value){
             $related_models = explode('|', $value);
+            
             foreach($related_models as $model){
-                $product->product['product_related'][]=$product->getRelatedProducts($model);
+                $product->product['product_related'][]=$product->getProductByModel($model);
             }
+            
         }
     }
 );
