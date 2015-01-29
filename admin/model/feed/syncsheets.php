@@ -548,7 +548,7 @@ class ModelFeedSyncsheets extends Model {
     
     public function set(){
         if ($this->setting && $this->productfeed){
-            
+//            print_r($this->productfeed); exit;
             $this->load->model('catalog/product');
             
             $this->response=array();
@@ -1836,13 +1836,15 @@ class ModelFeedSyncsheets extends Model {
             }
         }
         
-        if (isset($data['product']['keyword']) ){
+        if (isset($data['product']['keyword'])){
             $queries[] = $sql = "DELETE FROM " . DB_PREFIX . "url_alias WHERE query = 'product_id=" . (int)$product_id. "'";
             $this->db->query($sql);
-            $queries[] = $sql = "INSERT INTO " . DB_PREFIX . "url_alias SET query = 'product_id=" . (int) $product_id . "', keyword = '" . $this->db->escape($data['product']['keyword']) . "'";
+            if(!empty($data['product']['keyword'])){
+                $queries[] = $sql = "INSERT INTO " . DB_PREFIX . "url_alias SET query = 'product_id=" . (int) $product_id . "', keyword = '" . $this->db->escape($data['product']['keyword']) . "'";
+            }
             $this->db->query($sql);
         }
-        foreach ($queries as $query) {
+        foreach ($queries as $query){
             $this->writeLog($query,'sql');
         }
         

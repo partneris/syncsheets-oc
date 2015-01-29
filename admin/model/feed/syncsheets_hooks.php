@@ -420,9 +420,10 @@ $hooks[] = array(
     }
 );
 
+
 $hooks[] = array(
     'type'  => 'regex',
-    'match' => '/^seo.*/',
+    'match' => '/^keyword.*/',
     'get'   =>  function($product,$field){
         return (isset($product->product['seo_keyword']) && !empty($product->product['seo_keyword'])) ? $product->product['seo_keyword'] : '';
     },

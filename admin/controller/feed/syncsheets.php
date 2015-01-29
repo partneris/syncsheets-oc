@@ -210,6 +210,19 @@ class ControllerFeedSyncsheets extends Controller {
                     $attibute_groups = $this->model_feed_syncsheets->getAttributeGroups($this->config->get('config_language_id'));
                     die(json_encode(array('languages'=>$languages,'default_language'=>$default,'attribute_groups'=>$attibute_groups)));
                     break;
+                case 'listCategory':
+                    $kats=array();
+                    $catByLang = $this->model_feed_syncsheets->fetchLanguageCategory();
+                    foreach($catByLang as $lang=>$cats){
+                        foreach($cats as $item){
+                            $kats[$lang][$item['category_id']]=$item['name'];
+                        }
+                    }
+                    die($this->gss_json_encode(array('cats'=>$kats)));
+                    break;
+                default:
+                    die(json_encode(array('error'=>'Invalid Request')));
+                    break;
             }
         }
         
