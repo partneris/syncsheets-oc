@@ -1756,6 +1756,7 @@ class ModelFeedSyncsheets extends Model {
             }
             $sql = trim($sql, ',');
             $sql .= ' where product_id="' . $product_id . '"';
+//            echo $sql; exit;
 //            $queries[] = $sql;
            
             $this->db->query($sql);
@@ -1782,13 +1783,16 @@ class ModelFeedSyncsheets extends Model {
         if (isset($data['product_image'])) {
             $queries[] = $sql = "DELETE FROM " . DB_PREFIX . "product_image WHERE product_id = '" . (int) $product_id . "'";
             $this->db->query($sql);
-            foreach ($data['product_image'] as $product_image) {
-                if($product_image['image']){
-                    $queries[] = $sql = "INSERT INTO " . DB_PREFIX . "product_image SET product_id = '" . (int) $product_id . "', image = '" . $this->db->escape(html_entity_decode($product_image['image'], ENT_QUOTES, 'UTF-8')) . "', sort_order = '" . (int) $product_image['sort_order'] . "'";
-                    $this->db->query($sql);
+            if($data['product_image']){
+                foreach ($data['product_image'] as $product_image) {
+                    if($product_image['image']){
+                        $queries[] = $sql = "INSERT INTO " . DB_PREFIX . "product_image SET product_id = '" . (int) $product_id . "', image = '" . $this->db->escape(html_entity_decode($product_image['image'], ENT_QUOTES, 'UTF-8')) . "', sort_order = '" . (int) $product_image['sort_order'] . "'";
+                        $this->db->query($sql);
+                    }
                 }
             }
         }
+        
 
         if (isset($data['product_category'])) {
             $queries[] = $sql = "DELETE FROM " . DB_PREFIX . "product_to_category WHERE product_id = '" . (int) $product_id . "'";

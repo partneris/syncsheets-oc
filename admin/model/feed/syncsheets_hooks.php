@@ -300,7 +300,7 @@ $hooks[] = array(
     },
     'add'  => function($key,$value,$product){
         $images = explode('|', $value);
-        
+        $product->product['product_image'] = array();
         foreach($images as $key => $image) {
              if(isUrl($image)){
                  $img = saveImageFromUrl($image);
@@ -316,6 +316,7 @@ $hooks[] = array(
     }
     
 );   
+
 
 $hooks[] = array(
     'type'  => 'regex',
