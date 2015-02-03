@@ -389,8 +389,8 @@ $hooks[] = array(
     'add' => function($key,$value,$product){
         $value = str_replace("'","\"", $value);
         $options = json_decode($value);
+        $product->product['product_option']=array();
         if($options){
-            $product->product['product_option']=array();
             foreach($options as $item){
                 $product->product['product_option'][] = (array)$item;
             }
