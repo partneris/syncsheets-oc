@@ -1,8 +1,9 @@
 <?php 
-define('GSS_VERSION', "0.5.6");
+define('GSS_VERSION', "0.5.7");
 class ControllerFeedSyncsheets extends Controller {
 	private $error = array(); 
         public $_log = array();
+        protected $data = array();
         
         public function msg($message,$type='Notice'){
             $this->_log[] = date('Y-m-d G:i:s') . ' - ' . $type .' : '. $message . "\n";
@@ -352,7 +353,12 @@ class ControllerFeedSyncsheets extends Controller {
                     $ids = implode(',', $this->request->post['selected']);
                     $this->model_feed_syncsheets->deleteSelected($ids);
                     $this->session->data['success'] = $this->language->get('text_success');
-                    $this->redirect($this->url->link('feed/syncsheets', 'token=' . $this->session->data['token'], 'SSL'));
+                    
+                    if(version_compare(VERSION,'2.0.0') >= 0){
+                        $this->response->redirect($this->url->link('feed/syncsheets', 'token=' . $this->session->data['token'], 'SSL'));
+                    }else{
+                        $this->redirect($this->url->link('feed/syncsheets', 'token=' . $this->session->data['token'], 'SSL'));
+                    }
                 }
             }
             
@@ -399,14 +405,21 @@ class ControllerFeedSyncsheets extends Controller {
             $this->data['action'] = $this->url->link('feed/syncsheets', 'token=' . $this->session->data['token'], 'SSL');
             $this->data['cancel'] = $this->url->link('extension/feed', 'token=' . $this->session->data['token'], 'SSL');
 
-            $this->template = 'feed/syncsheets_settings.tpl';
-            $this->children = array(
-                    'common/header',
-                    'common/footer'
-            );
+            if (version_compare(VERSION, '2.0.0') >= 0) {
+                $this->data['text_edit'] = 'Configure Google Spreadsheet Sync';
+                $this->data['header'] = $this->load->controller('common/header');
+                $this->data['column_left'] = $this->load->controller('common/column_left');
+                $this->data['footer'] = $this->load->controller('common/footer');
+                $this->response->setOutput($this->load->view('feed/syncsheets_settings_20.tpl', $this->data));
+            }else{
+                $this->template = 'feed/syncsheets_settings.tpl';
+                $this->children = array(
+                        'common/header',
+                        'common/footer'
+                );
 
-            $this->response->setOutput($this->render());
-                
+                $this->response->setOutput($this->render());
+            }
             
         }
         
@@ -428,7 +441,11 @@ class ControllerFeedSyncsheets extends Controller {
                     else
                         $this->model_feed_syncsheets->saveSetting($data);
                     $this->session->data['success'] = $this->language->get('text_success');
-                    $this->redirect($this->url->link('feed/syncsheets', 'token=' . $this->session->data['token'], 'SSL'));
+                    if(version_compare(VERSION,'2.0.0') >= 0){
+                        $this->response->redirect($this->url->link('feed/syncsheets', 'token=' . $this->session->data['token'], 'SSL'));
+                    }else{
+                        $this->redirect($this->url->link('feed/syncsheets', 'token=' . $this->session->data['token'], 'SSL'));
+                    }
             }
             
            if(isset($this->request->get['id'])){
@@ -524,7 +541,7 @@ class ControllerFeedSyncsheets extends Controller {
 		
 		$this->data['button_save'] = $this->language->get('button_save');
 		$this->data['button_cancel'] = $this->language->get('button_cancel');
-
+                $this->data['cancel'] = $this->url->link('feed/syncsheets', 'token=' . $this->session->data['token'], 'SSL');
 		$this->data['tab_general'] = $this->language->get('tab_general');
 
  		if (isset($this->error['warning'])) {
@@ -538,17 +555,29 @@ class ControllerFeedSyncsheets extends Controller {
                 $languages = $this->db->query("SELECT * FROM `" . DB_PREFIX . "language` ORDER BY `language_id`");
                 $this->data['default_langaue'] = $this->config->get('config_language');
                 $this->data['languages'] = $languages; 
-                if(!defined('GSS'))
-                    $this->template = 'feed/syncsheets_fields_g.tpl';
-                else
+//                if(!defined('GSS'))
+//                    $this->template = 'feed/syncsheets_fields_g.tpl';
+//                else
+//                    $this->template = 'feed/syncsheets_fields.tpl';
+//                if(!defined('GSS')){
+                    
+//                }		
+              
+                if (version_compare(VERSION, '2.0.0') >= 0) {
+                    $this->data['header'] = $this->load->controller('common/header');
+                    $this->data['column_left'] = $this->load->controller('common/column_left');
+                    $this->data['footer'] = $this->load->controller('common/footer');
+                    $this->response->setOutput($this->load->view('feed/syncsheets_fields_20.tpl', $this->data));
+                }else{
                     $this->template = 'feed/syncsheets_fields.tpl';
-                if(!defined('GSS')){
                     $this->children = array(
                             'common/header',
                             'common/footer'
                     );
-                }		
-		$this->response->setOutput($this->render());
+                    $this->response->setOutput($this->render());
+                }
+                
+		
                 
         }
         
