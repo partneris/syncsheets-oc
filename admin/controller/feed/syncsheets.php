@@ -650,7 +650,7 @@ class ControllerFeedSyncsheets extends Controller {
                      $response = $this->model_feed_syncsheets->call('version_check');
                      
                      if(version_compare($response->Version->version_no, GSS_VERSION) === 1){
-                         $this->updateCode($response->Version->github_link);
+                         $this->updateCode($response->Version->download_link);
                      }
                      break;
                  case 'signup':
