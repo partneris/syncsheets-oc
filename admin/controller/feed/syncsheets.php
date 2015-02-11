@@ -666,6 +666,7 @@ class ControllerFeedSyncsheets extends Controller {
             $cache_file = DIR_CACHE .'gssuploads.zip';
             $application_path = dirname(DIR_APPLICATION);
             file_put_contents($cache_file, file_get_contents($link));
+            $parent_dir = '';
             if(is_file($cache_file)){
               $zip = new ZipArchive;
                 if ($zip->open($cache_file) === TRUE) {
@@ -677,17 +678,23 @@ class ControllerFeedSyncsheets extends Controller {
                              $zip_root_folder = $filename;
                          }else{
                              if(isset($fileinfo['extension'])){
+                                 if($parent_dir=='') $parent_dir = $fileinfo['dirname'];
+                                 
                                  $folder_path = str_replace($zip_root_folder,'', $fileinfo['dirname']);
-                                 $destination_path = $application_path .DIRECTORY_SEPARATOR. $folder_path; //$fileinfo['basename'];
+                                 $folder_path = str_replace($parent_dir,'', $folder_path);
+                                 
+                                 $destination_path = $application_path . $folder_path; //$fileinfo['basename'];
                                  if(!is_dir($destination_path)){
                                      mkdir($destination_path,755,true);
                                  }
                                  $destination = $destination_path . DIRECTORY_SEPARATOR . $fileinfo['basename'];
+                                 
                                  copy("zip://".$cache_file."#".$filename,$destination);
                                  $json['files'][] = $destination;
                              }
                          }
-                     }                  
+                     }          
+                     
                      $zip->close();                  
                 }
                 $json['msg'] = "Congrats! Syncsheet Now updated to latest version.";
