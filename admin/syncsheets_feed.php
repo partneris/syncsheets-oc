@@ -5,7 +5,7 @@ $index = file_get_contents('index.php');
 //$tokens = token_get_all($index);
 preg_match("/define\('(.*?)',\s*'(.*)'\);/", $index, $version);
 
-if($version[1]==VERSION){
+if($version[1]=="VERSION"){
     define('VERSION',$version[2]);
 }else{
     define('VERSION','1.5.6.4');

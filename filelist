@@ -1,0 +1,9 @@
+./admin/syncsheets_feed.php
+./admin/controller/feed/syncsheets.php
+./admin/view/template/feed/syncsheets_account.tpl
+./admin/view/template/feed/syncsheets_settings.tpl
+./admin/view/template/feed/syncsheets_fields_g.tpl
+./admin/view/template/feed/syncsheets_fields.tpl
+./admin/language/english/feed/syncsheets.php
+./admin/model/feed/syncsheets.php
+./admin/model/feed/syncsheets_hooks.php
