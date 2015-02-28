@@ -420,15 +420,13 @@ class ControllerFeedSyncsheets extends Controller {
 
                 $this->response->setOutput($this->render());
             }
-            
         }
-        
+
         public function setting(){
             $this->load->model('feed/syncsheets');
 //            print_r($this->request->post); exit;
             $this->data['edit'] = false;
-            
-            
+
             if (($this->request->server['REQUEST_METHOD'] == 'POST') && $this->validate()) {
                     $posted = $this->request->post; 
                     $data = array(
