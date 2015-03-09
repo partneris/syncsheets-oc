@@ -386,7 +386,7 @@ class ModelFeedSyncsheets extends Model {
 //                    'productid' => $product_id,
                     'name' => $product_option['name'],
                     'type' => $product_option['type'],
-                    'option_value' => $product_option['option_value'],
+                    'option_value' => (isset($product_option['option_value']))?$product_option['option_value']:'',
                     'required' => $product_option['required'],
                     'quantity' => "",
                     'subtract' => "",
