@@ -484,25 +484,17 @@ $hooks[] = array(
     }
 );
 
-function isUrl($url){
-    $regex = "((https?|ftp)\:\/\/)?"; 
-    $regex .= "([a-z0-9+!*(),;?&=\$_.-]+(\:[a-z0-9+!*(),;?&=\$_.-]+)?@)?"; 
-    $regex .= "([a-z0-9-.]*)\.([a-z]{2,3})"; 
-    $regex .= "(\:[0-9]{2,5})?";
-    $regex .= "(\/([a-z0-9+\$_-]\.?)+)*\/?";
-    $regex .= "(\?[a-z+&\$_.-][a-z0-9;:@&%=+\/\$_.-]*)?";
-    $regex .= "(#[a-z_.-][a-z0-9+\$_.-]*)?";
-    if(preg_match("/^$regex$/", $url)){ 
-        return true; 
+    function isUrl($url){
+        if(filter_var($text, FILTER_VALIDATE_URL))
+            return true;    
+        else
+            return false;
     }
-}
 
     function saveImageFromUrl($image){
 	    $root = realpath(DIR_APPLICATION.'..');
 	    if($image){
 	        $download_path = 'data'.DIRECTORY_SEPARATOR.'gss' . DIRECTORY_SEPARATOR;
-	        
-	    
 	    $name = substr($image,  strrpos($image,'/')+1, strlen($image));
 	    $c_name = md5($name) . '_' . $name;
 	    if(!is_dir(DIR_IMAGE . $download_path)){
