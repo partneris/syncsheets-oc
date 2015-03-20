@@ -305,11 +305,11 @@ $hooks[] = array(
              if(isUrl($image)){
                  $img = saveImageFromUrl($image);
 	            if($img){
-	               $product->product['product_image'][$key]['image'] = $img;
+	               $product->product['product_image'][$key]['image'] = trim($img);
 	               $product->product['product_image'][$key]['sort_order'] = $key;
 	             }
              }elseif($image){
-                   $product->product['product_image'][$key]['image'] = $image;
+                   $product->product['product_image'][$key]['image'] = trim($image);
 	           $product->product['product_image'][$key]['sort_order'] = $key;
              }
         }
