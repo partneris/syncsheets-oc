@@ -1,0 +1,4 @@
+.releases
+current-version.info
+update-version.config
+update-version.sh
