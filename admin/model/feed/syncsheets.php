@@ -165,8 +165,9 @@ class ModelFeedSyncsheets extends Model {
     }
     
     public function applyFilters(){
+        $hooks = array();
         
-        require_once('syncsheets_hooks.php');
+        $this->loadHooks();
         
         $matches = array();
         
@@ -1651,23 +1652,9 @@ class ModelFeedSyncsheets extends Model {
             }
         }
 
-        if (isset($data['product_option'])) {
-            foreach ($data['product_option'] as $product_option) {
-                if ($product_option['type'] == 'select' || $product_option['type'] == 'radio' || $product_option['type'] == 'checkbox' || $product_option['type'] == 'image') {
-                    $this->db->query("INSERT INTO " . DB_PREFIX . "product_option SET product_id = '" . (int) $product_id . "', option_id = '" . (int) $product_option['option_id'] . "', required = '" . (int) $product_option['required'] . "'");
-
-                    $product_option_id = $this->db->getLastId();
-
-                    if (isset($product_option['product_option_value']) && count($product_option['product_option_value']) > 0) {
-                        foreach ($product_option['product_option_value'] as $product_option_value) {
-                            $this->db->query("INSERT INTO " . DB_PREFIX . "product_option_value SET product_option_id = '" . (int) $product_option_id . "', product_id = '" . (int) $product_id . "', option_id = '" . (int) $product_option['option_id'] . "', option_value_id = '" . (int) $product_option_value['option_value_id'] . "', quantity = '" . (int) $product_option_value['quantity'] . "', subtract = '" . (int) $product_option_value['subtract'] . "', price = '" . (float) $product_option_value['price'] . "', price_prefix = '" . $this->db->escape($product_option_value['price_prefix']) . "', points = '" . (int) $product_option_value['points'] . "', points_prefix = '" . $this->db->escape($product_option_value['points_prefix']) . "', weight = '" . (float) $product_option_value['weight'] . "', weight_prefix = '" . $this->db->escape($product_option_value['weight_prefix']) . "'");
-                        }
-                    } else {
-                        $this->db->query("DELETE FROM " . DB_PREFIX . "product_option WHERE product_option_id = '" . $product_option_id . "'");
-                    }
-                } else {
-                    $this->db->query("INSERT INTO " . DB_PREFIX . "product_option SET product_id = '" . (int) $product_id . "', option_id = '" . (int) $product_option['option_id'] . "', option_value = '" . $this->db->escape($product_option['option_value']) . "', required = '" . (int) $product_option['required'] . "'");
-                }
+        if(isset($data['product_option'])){
+            foreach($data['product_option'] as $option){
+                $this->saveOption($option,$product_id);
             }
         }
 
@@ -1863,6 +1850,13 @@ class ModelFeedSyncsheets extends Model {
 //                    $this->db->query("INSERT INTO " . DB_PREFIX . "product_related SET product_id = '" . (int)$related_id . "', related_id = '" . (int)$product_id . "'");
                 }
             }
+        }
+
+        if(isset($data['product_store'])) {
+             $this->db->query("DELETE FROM " . DB_PREFIX . "product_to_store WHERE product_id = '" . (int)$product_id . "'");
+	          foreach ($data['product_store'] as $store_id) {
+			$this->db->query("INSERT INTO " . DB_PREFIX . "product_to_store SET product_id = '" . (int)$product_id . "', store_id = '" . (int)$store_id . "'");
+		  }
         }
         
         if(isset($data['product_option'])){
@@ -2082,13 +2076,10 @@ class ModelFeedSyncsheets extends Model {
         return preg_replace('/[^A-Za-z0-9\-]/', '', $string); // Removes special chars.
     }
     
-    public function getProductStore($product_id,$id=false) {
-        $query = $this->db->query("SELECT * FROM " . DB_PREFIX . "store s left join `" . DB_PREFIX . "product_to_store` p2s ON (p2s.store_id=s.store_id) where p2s.product_id='$product_id'");
+    public function getProductStore($product_id) {
+        $query = $this->db->query("SELECT * FROM " . DB_PREFIX . "store s right join `" . DB_PREFIX . "product_to_store` p2s ON (p2s.store_id=s.store_id) where p2s.product_id='$product_id'");
         if ($query->num_rows) {
-            return ($id)?$query->row['store_id']:$query->row['name'];
-        } else { 
-            if($id) {return " 0 ";}
-            else { return $this->config->get('config_name'); }
+            return $query->rows;
         }
     }
     
@@ -2395,6 +2386,18 @@ class ModelFeedSyncsheets extends Model {
     public function gss_json_encode($arr){
         array_walk_recursive($arr,array($this,'json_cb'));
         return mb_decode_numericentity(json_encode($arr), array (0x80, 0xffff, 0, 0xffff), 'UTF-8');
+    }
+
+    public function loadHooks(){
+        $path = dirname(__FILE__);
+        $hooks_container = $path . DIRECTORY_SEPARATOR . 'hooks' . DIRECTORY_SEPARATOR;
+        if(is_dir($hooks_container)){
+            foreach (glob($hooks_container."*.php") as $filename){
+                require_once($filename);
+            }
+        }else{
+            die('Error: Unable to load hooks!');
+        }
     }
 }
 

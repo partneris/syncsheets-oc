@@ -8,22 +8,64 @@ $hooks[] = array(
     'type'  =>  'normal',
     'match' =>  'store',
     'get'   =>  function($product,$field){
-        return $product->getProductStore($product->id);
+        $stores = $product->getProductStore($product->id,true);
+        $store_field = '';
+        if($stores)
+        foreach($stores as $store){
+        	if($store['store_id']==0)
+        	        $store_field .= $product->config->get('config_name') . ',';
+        	else
+        		$store_field .= $store['name'] . ',';
+        }
+        return trim($store_field,',');
+       
     },
     'add'   => function($key,$value,$product){
-         $product->product['product_store'][0] = 0;
+    	$stores = explode(',', $value);
+    	
+        $store_ids = array();
+        foreach($stores as $store){
+             $query = $product->db->query("select store_id from ".DB_PREFIX."store where name = '".trim($store)."'");
+             if($query->num_rows){
+                  $store_ids[] = $query->row['store_id'];
+             }elseif($store == $product->config->get('config_name')){
+             	  $store_ids[] = 0;
+             }
+        }
+        $product->product['product_store'] = $store_ids;
     }
 );
 $hooks[] = array(
     'type'  =>  'normal',
     'match' =>  'store_id',
     'get'   =>  function($product,$field){
-        return $product->getProductStore($product->id,true);
+        $stores = $product->getProductStore($product->id,true);
+        $store_field = '';
+        
+        foreach($stores as $store){
+        	if($store['store_id']==0)
+        	        $store_field .= $product->config->get('config_name') . ',';
+        	else
+        		$store_field .= $store['name'] . ',';
+        }
+        return trim($store_field,',');
     },
     'add'   => function($key,$value,$product){
-         $product->product['product_store'][0] = 0;
+        $stores = explode(',', $value);
+        $store_ids = array();
+        
+        foreach($stores as $store){
+             $query = $product->db->query("select store_id from ".DB_PREFIX."store where name = '".trim($store)."'");
+             if($query->num_rows){
+                  $store_ids[] = $query->row['store_id'];
+             }elseif($store == $product->config->get('config_name')){
+             	  $store_ids[] = 0;
+             }
+        }
+        $product->product['product_store'] = $store_ids;
     }
 );
+
 
 $hooks[] = array(
     'type'  =>  'normal',
@@ -305,11 +347,11 @@ $hooks[] = array(
              if(isUrl($image)){
                  $img = saveImageFromUrl($image);
 	            if($img){
-	               $product->product['product_image'][$key]['image'] = $img;
+	               $product->product['product_image'][$key]['image'] = trim($img);
 	               $product->product['product_image'][$key]['sort_order'] = $key;
 	             }
              }elseif($image){
-                   $product->product['product_image'][$key]['image'] = $image;
+                   $product->product['product_image'][$key]['image'] = trim($image);
 	           $product->product['product_image'][$key]['sort_order'] = $key;
              }
         }
@@ -438,11 +480,12 @@ $hooks[] = array(
     'match' =>  'related',
     'get'   =>  function($product,$field){
         $related = '';
-        $query = $product->db->query("select p.model from ".DB_PREFIX."product p left join ".DB_PREFIX."product_related rp on (p.product_id=rp.product_id) where rp.product_id='$product->id' group by rp.product_id");
+        $query = $product->db->query("select p.model from ".DB_PREFIX."product p left join ".DB_PREFIX."product_related rp on (p.product_id=rp.related_id) where rp.product_id='$product->id' group by rp.related_id");
+        
                     foreach($query->rows as $row){
-                        $related .=$row['model'].',';
+                        $related .=$row['model'].'|';
                     }
-         return trim($related,',');
+         return trim($related,'|');
     },
     'add' => function($key,$value,$product){
         if($value){
