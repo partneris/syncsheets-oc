@@ -1,5 +1,5 @@
 <?php 
-define('GSS_VERSION', "0.6.5");
+define('GSS_VERSION', "0.6.6");
 class ControllerFeedSyncsheets extends Controller {
 	private $error = array(); 
         public $_log = array();

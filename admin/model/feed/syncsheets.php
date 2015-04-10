@@ -167,7 +167,15 @@ class ModelFeedSyncsheets extends Model {
     public function applyFilters(){
         $hooks = array();
         
-        $this->loadHooks();
+        $path = dirname(__FILE__);
+        $hooks_container = $path . DIRECTORY_SEPARATOR . 'hooks' . DIRECTORY_SEPARATOR;
+        if(is_dir($hooks_container)){
+            foreach (glob($hooks_container."*.php") as $filename){
+                require_once($filename);
+            }
+        }else{
+            die('Error: Unable to load hooks!');
+        }
         
         $matches = array();
         
