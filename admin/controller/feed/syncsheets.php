@@ -683,7 +683,7 @@ class ControllerFeedSyncsheets extends Controller {
                                  
                                  $destination_path = $application_path . $folder_path; //$fileinfo['basename'];
                                  if(!is_dir($destination_path)){
-                                     mkdir($destination_path,755,true);
+                                     mkdir($destination_path); //this was incorrectly with 755
                                  }
                                  $destination = $destination_path . DIRECTORY_SEPARATOR . $fileinfo['basename'];
                                  
