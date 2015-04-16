@@ -735,14 +735,15 @@ class ModelFeedSyncsheets extends Model {
     }
     
     public function getTaxClass(){
-        $taxes = array();
+        $taxes = array(''=>'None');
         $query = $this->db->query("select * from ".DB_PREFIX."tax_class");
+        //print_r($query->rows); exit;
         if($query->num_rows){
             foreach($query->rows as $row){
-                $manuf[$row['tax_class_id']] = $row['title'];
+                $taxes[$row['tax_class_id']] = $row['title'];
             }
         }
-        return $manuf;
+        return $taxes;
     }
     
     public function getWeightClass(){
