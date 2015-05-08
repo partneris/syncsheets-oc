@@ -1612,9 +1612,35 @@ class ModelFeedSyncsheets extends Model {
         $languages = $this->getLanguagesByCode();
         $cats = array();
         foreach($languages as $language){
-            $sql = "SELECT cp.category_id AS category_id, c.image, c.top,c.sort_order,c.status, cd2.name,cd2.description,cd2.meta_description,cd2.meta_keyword, GROUP_CONCAT(cd1.name ORDER BY cp.level SEPARATOR ' > ') AS path, c.parent_id, c.sort_order FROM " . DB_PREFIX . "category_path cp LEFT JOIN " . DB_PREFIX . "category c ON (cp.path_id = c.category_id) LEFT JOIN " . DB_PREFIX . "category_description cd1 ON (c.category_id = cd1.category_id) LEFT JOIN " . DB_PREFIX . "category_description cd2 ON (cp.category_id = cd2.category_id) LEFT JOIN ".DB_PREFIX."language l ON (cd1.language_id=l.language_id) WHERE cd1.language_id = '" .$language['language_id']. "' AND cd2.language_id = '" .$language['language_id']. "'";
-            $sql .= " GROUP BY cp.category_id ORDER BY path";
-            $query = $this->db->query($sql);
+        
+            $sql = "
+			  SELECT 
+				cp.category_id AS category_id, 
+				c.image, 
+				c.top,
+				c.sort_order,
+				c.status, 
+				cd2.name,
+				cd2.description,
+				cd2.meta_description,
+				cd2.meta_keyword, 
+				GROUP_CONCAT(cd1.name ORDER BY cp.level SEPARATOR '   > ') AS path, 
+				c.parent_id, 
+				c.sort_order 
+			  FROM " . DB_PREFIX . "category_path cp 
+			  LEFT JOIN " . DB_PREFIX . "category c ON (cp.path_id = c.category_id) 
+			  LEFT JOIN " . DB_PREFIX . "category_description cd1 ON (c.category_id = cd1.category_id) 
+			  LEFT JOIN " . DB_PREFIX . "category_description cd2 ON (cp.category_id = cd2.category_id) 
+			  LEFT JOIN ".DB_PREFIX."language l ON (cd1.language_id=l.language_id) 
+			  
+			  WHERE cd1.language_id = '" .$language['language_id']. "' AND cd2.language_id = '" .$language['language_id']. "'";
+            $sql .= " 
+			  GROUP BY cp.category_id 
+			  
+			  ORDER BY path";
+			
+			$query = $this->db->query($sql);
+            
             if ($query->num_rows)
                 $cats[$language['code']] = $query->rows;
          }
