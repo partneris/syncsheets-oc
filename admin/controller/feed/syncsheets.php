@@ -64,7 +64,7 @@ class ControllerFeedSyncsheets extends Controller {
                        $count = $this->model_feed_syncsheets->getProductsCount(array());
                        die(json_encode(array('count'=>$count)));
                     break;
-                case 'oc2gss':
+                case 'oc2gss': //Initial Pull
                    $headers = $this->request->post['headers'];
                        $count = $this->request->post['count'];
                        $limit = (isset($this->request->post['limit']))?$this->request->post['limit']:500;
@@ -74,7 +74,7 @@ class ControllerFeedSyncsheets extends Controller {
                        $start = $limit * $callback - $limit;
                        $this->export($headers,$start,$limit);
                     break;
-                case 'sync':
+                case 'sync': // Push All Data
                     
                        $rows = json_decode(base64_decode($this->request->post['rows']));
                        $instance = $this->model_feed_syncsheets
@@ -85,7 +85,7 @@ class ControllerFeedSyncsheets extends Controller {
                                         ->prepareSet()
                                         ->set();
                     break; 
-                case 'columnpull':
+                case 'columnpull': //pull columns
                            $headers = json_decode(base64_decode($this->request->post['headers']));
                            $products = base64_decode($this->request->post['products']);
                            $this->load->model('catalog/product');
@@ -104,7 +104,7 @@ class ControllerFeedSyncsheets extends Controller {
                            }
                             die(json_encode($json));
                     break;
-                case 'columnupdate':
+                case 'columnupdate': //push columns
                     
                     $rows = json_decode(base64_decode($this->request->post['rows']));
                     $instance = $this->model_feed_syncsheets
