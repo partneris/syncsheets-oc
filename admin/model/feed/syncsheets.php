@@ -100,6 +100,7 @@ class ModelFeedSyncsheets extends Model {
     }
     
     public function extractHeader(){
+		
         if(isset($this->productfeed[0])){
             foreach($this->productfeed[0] as $key=>$item){
                 $this->headers[] = $key;
