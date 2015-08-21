@@ -133,57 +133,6 @@ $hooks[] = array(
     }
 );
 
-//$hooks[] = array(
-//    'type' =>  'regex',
-//    'match'=>  '/^category.*/',
-//    'get'   =>  function($product,$field){
-//        if(array_key_exists($field, $product->productMap) && !empty($product->productMap[$field])){
-//            return false;
-//        }
-//        
-//        $catIndex = filter_var($field, FILTER_SANITIZE_NUMBER_INT);
-//        $cat = explode($catIndex, $field);
-//        $language_code = end($cat);
-//        $language_id = isset($product->lg[$language_code]['language_id']) ? $product->lg[$language_code]['language_id'] : '0';
-//        $category = array(); $return=array();
-//        $cats = $product->getProductCategories($product->id);
-//        if (!empty($cats)){
-//            foreach ($cats as $category_id){
-//                $path = $product->getCategoryPath($category_id,$language_id);
-//                if (!empty($path)) {
-//                    $category[] = $path;
-//                }
-//            }
-//        }
-//        $languageCode = substr($field,  strlen($field)-2,  strlen($field));
-//        foreach ($category as $catekey => $catitem) {
-//            $n = $catekey + 1;
-//            $return['category' . $n.$languageCode] = html_entity_decode($catitem);
-//        }
-//        return $return;
-//    },
-//    'add'   =>  function($key,$value,$product){
-//        $category_id = 0;
-//        $catIndex = filter_var($key, FILTER_SANITIZE_NUMBER_INT);
-//        if($catIndex==1)
-//            $product->product['product_category']=array();
-//        
-//        $cat = explode($catIndex, $key);
-//        $languageCode = end($cat);
-//       
-//            if (isset($product->categories[$languageCode][html_entity_decode($value)])) {
-//                $category_id = $product->categories[$languageCode][html_entity_decode($value)];
-//                if ($category_id)
-//                    $product->product['product_category'][] = $category_id;
-//            }else {
-//                if (!empty($value))
-//                    $category_id = $product->saveCategory($value,$product->languages);
-//                if ($category_id)
-//                    $product->product['product_category'][] = $category_id;
-//            }
-//    }
-//);
-
 $hooks[] = array(
     'type' =>  'regex',
     'match'=>  '/^category.*/',
@@ -363,7 +312,7 @@ $hooks[] = array(
 $hooks[] = array(
     'type'  => 'regex',
     'match' => '/^discount.*/',
-    'beforetFilter'=> function($header,$product){
+    'beforetFilter' => function($header,$product){
         $regex = "/\{(.*?)\}/";
         preg_match($regex, $header, $match);
         parse_str($match[1],$parsed_header);
@@ -371,22 +320,35 @@ $hooks[] = array(
             $group = $product->getCustomerGroupByName($parsed_header['group']);
             $parsed_header['customer_group_id'] = $group['customer_group_id'];
             $product->default_discount = $parsed_header;
+            if (empty($product->customer_groups)) {
+				$customer_groups = $product->getCustomerGroup();
+				$customer_group_ids = array();
+				foreach ( $customer_groups as $customer_group ) {
+					$customer_group_ids[$customer_group['name']] = $customer_group['customer_group_id'];
+				}
+				$product->customer_group_ids = $customer_group_ids;
+			}
         }
     },
-    'get'=>function($product,$field){
-    if(isset($product->product['discount']))      
-        return $product->product['discount'];
+    'get' => function($product,$field){
+		if(isset($product->product['discount']))      
+			return $product->product['discount'];
     },
     'add' => function($key,$value,$product){
         $value = str_replace("'","\"", $value);
-        $dicounts = json_decode($value);
-        if(is_array($dicounts)){
-            $product->product['product_discount'] = array();
-            foreach($dicounts as $item){
-                $product->product['product_discount'][] = (array)$item;
+        $discounts = json_decode($value);
+		$product->product['product_discount'] = array();
+        if(is_array($discounts)){
+            foreach($discounts as $item){
+				$item = (array)$item;
+				if (!empty($item['group'])) {
+					if (!empty($product->customer_group_ids[ $item['group'] ])) {
+						$item['customer_group_id'] = $product->customer_group_ids[ $item['group'] ];
+					}
+				}
+
+                $product->product['product_discount'][] = $item;
             }
-        }else{
-            $product->product['product_discount'] = array();
         }
     }
 );
@@ -394,7 +356,7 @@ $hooks[] = array(
 $hooks[] = array(
     'type'  => 'regex',
     'match' => '/^special.*/',
-    'beforetFilter'=> function($header,$product){
+    'beforetFilter' => function($header,$product){
         $regex = "/\{(.*?)\}/";
         preg_match($regex, $header, $match);
         parse_str($match[1],$parsed_header);
@@ -402,22 +364,34 @@ $hooks[] = array(
             $group = $product->getCustomerGroupByName($parsed_header['group']);
             $parsed_header['customer_group_id'] = $group['customer_group_id'];
             $product->default_special = $parsed_header;
+            if (empty($product->customer_groups)) {
+				$customer_groups = $product->getCustomerGroup();
+				$customer_group_ids = array();
+				foreach ( $customer_groups as $customer_group ) {
+					$customer_group_ids[$customer_group['name']] = $customer_group['customer_group_id'];
+				}
+				$product->customer_group_ids = $customer_group_ids;
+			}
         }
     },
-    'get'=>function($product,$field){
-    if(isset($product->product['special']))      
-        return $product->product['special'];
+    'get' => function($product,$field){
+		if(isset($product->product['special']))      
+			return $product->product['special'];
     },
     'add' => function($key,$value,$product){
         $value = str_replace("'","\"", $value);
         $special = json_decode($value);
-        if(is_array($special)){
-            $product->product['product_special'] = array();
+		$product->product['product_special'] = array();
+        if (is_array($special)) {
             foreach($special as $item){
-                $product->product['product_special'][] = (array)$item;
+				$item = (array)$item;
+				if (!empty($item['group'])) {
+					if (!empty($product->customer_group_ids[ $item['group'] ])) {
+						$item['customer_group_id'] = $product->customer_group_ids[ $item['group'] ];
+					}
+				}
+				$product->product['product_special'][] = $item;
             }
-        }else{
-            $product->product['product_special'] = array();
         }
     }
 );
