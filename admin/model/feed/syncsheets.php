@@ -559,14 +559,16 @@ class ModelFeedSyncsheets extends Model {
     public function set(){
         if ($this->setting && $this->productfeed){
 //            print_r($this->productfeed); exit;
-            $this->load->model('catalog/product');
+
+//don't know why this is needed, commenting out next line
+//            $this->load->model('catalog/product');
             
             $this->response=array();
             $update = 0;
             $added = 0;
 //            print_r($this->productfeed); exit;
             foreach ($this->productfeed as $i => $product) {
-                $this->_bind($product);
+                $this->_bind($product); // uses the 'add' funcion from hooks
                 $this->_beforeSave($product);
                
                 if(!is_numeric($product->product_id) && $product->product_id!='') {
@@ -612,6 +614,7 @@ class ModelFeedSyncsheets extends Model {
         }
     }
     
+    //Apllies default values
     private function _merge(){
         if(isset($this->product['product_description']))
            foreach ($this->product['product_description'] as $key => $pDesc)
@@ -627,34 +630,40 @@ class ModelFeedSyncsheets extends Model {
         $this->_mergeOption();
     }
     
-    private function _mergeDiscount(){
-        if(isset($this->product['product_discount']))
-            foreach($this->product['product_discount'] as $kk => $pdisc)
-               $this->product['product_discount'][$kk] = array_merge($this->default_discount, $pdisc);
+    private function _mergeDiscount() {
+    	if (isset($this->product['product_discount'])) {
+    		foreach($this->product['product_discount'] as $kk => $pdisc) {
+    			$this->product['product_discount'][$kk] = array_merge($this->default_discount, $pdisc);
+    		}
+    	}
     }
-    
-    private function _mergeSpecial(){
-        if(isset($this->product['product_special']))
-            foreach ($this->product['product_special'] as $kk => $pspec)
-               $this->product['product_special'][$kk] = array_merge($this->default_special, $pspec);
+
+    private function _mergeSpecial() {
+    	if (isset($this->product['product_special'])) {
+    		foreach($this->product['product_special'] as $kk => $pspec) {
+    			$this->product['product_special'][$kk] = array_merge($this->default_special, $pspec);
+    		}
+    	}
     }
-    
-    private function _mergeOption(){
-        if(isset($this->product['product_option']))
-            foreach($this->product['product_option'] as $kk => $poption)
-               $this->product['product_option'][$kk] = array_merge($this->option_default, $poption);
+
+    private function _mergeOption() {
+    	if (isset($this->product['product_option'])) {
+    		foreach($this->product['product_option'] as $kk => $poption) {
+				$this->product['product_option'][$kk] = array_merge($this->option_default, $poption);
+			}
+    	}
     }
-    
-    public function _setOptions(){
-        $language_id = $this->config->get('config_language_id');
-            if($this->optionfeed){
-                foreach ($this->optionfeed as $option) {
-                    if(isset($this->response['created']) && !empty($this->response['created']))
-                        if(array_key_exists($option->product_id, $this->response['created']))
-                            $option->product_id = $this->response['created'][$option->product_id];
-                    $this->saveOption($option, $language_id,$this->languages);
-                }
-            }
+
+    public function _setOptions() {
+    	$language_id = $this->config->get('config_language_id');
+    	if ($this->optionfeed) {
+    		foreach($this->optionfeed as $option) {
+    			if (isset($this->response['created']) && !empty($this->response['created']))
+    				if (array_key_exists($option->product_id, $this->response['created']))
+    					$option->product_id = $this->response['created'][$option->product_id];
+    			$this->saveOption($option, $language_id, $this->languages);
+    		}
+    	}
     }
     
     public function _isCl($t) {
