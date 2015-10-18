@@ -2,3 +2,4 @@
 current-version.info
 update-version.config
 update-version.sh
+download-package-files-from-remote.sh
